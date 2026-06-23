@@ -1,8 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { RouterProvider } from "react-router-dom"; // 👈 added
-import { router } from "./router"; // 👈 import your router
-import "./index.css"; // optional, keep your global styles
+import { RouterProvider } from "react-router-dom"; // 👈 provides routing context
+import { router } from "./router"; // 👈 your router file
+import "./index.css"; // keep your global styles (includes William Morris wallpaper)
 
 // Hide print buttons on Android
 if (/Android/i.test(navigator.userAgent)) {
@@ -18,9 +18,9 @@ type Job = {
   status: string;
 };
 
-// ✅ Render the RouterProvider instead of <App />
+// ✅ Render RouterProvider instead of <App />
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <RouterProvider router={router} /> {/* 👈 provides routing context */}
+    <RouterProvider router={router} /> {/* 👈 this fixes the context error */}
   </React.StrictMode>
 );
