@@ -1,26 +1,30 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { RouterProvider } from "react-router-dom"; // 👈 provides routing context
-import { router } from "./router"; // 👈 import your router configuration
-import "./index.css"; // keep your global styles (William Morris wallpaper etc.)
+import { RouterProvider } from "react-router-dom";
+import { router } from "./router";
+import "./index.css";
 
-// Hide print buttons on Android
+/* Import all providers */
+import { AccountingProvider } from "./pages/Accounting/AccountingContext";
+import { TechnicianProvider } from "./pages/Technician/TechnicianContext.tsx"; // 👈 note the .tsx extension
+import { StockProvider } from "./pages/Stock/StockContext";
+
+/* Hide print buttons on Android */
 if (/Android/i.test(navigator.userAgent)) {
   document.querySelectorAll(".print-button").forEach((el) => {
     (el as HTMLElement).style.display = "none";
   });
 }
 
-// Example job type (optional, for local testing)
-type Job = {
-  id: number;
-  description: string;
-  status: string;
-};
-
-// ✅ Render RouterProvider instead of <App />
+/* Render router wrapped in all providers */
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <RouterProvider router={router} /> {/* 👈 fixes router context */}
+    <AccountingProvider>
+      <TechnicianProvider>
+        <StockProvider>
+          <RouterProvider router={router} />
+        </StockProvider>
+      </TechnicianProvider>
+    </AccountingProvider>
   </React.StrictMode>
 );
