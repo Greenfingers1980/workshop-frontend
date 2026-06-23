@@ -1,15 +1,17 @@
+// src/pages/Technician/TechnicianMyJobs.tsx
 import React, { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useJobs } from "../../hooks/useJobs";
 import type { Job } from "../../hooks/useJobs";
+import { TechnicianTiming } from "./TechnicianTiming"
 
 export const TechnicianMyJobs: React.FC = () => {
   const { jobs } = useJobs();
 
-  // 👇 Fixed technician identity — always Matthew
+  // ✅ Fixed technician identity — always Matthew
   const technicianName = "Matthew";
 
-  // Filter jobs assigned to Matthew
+  // ✅ Filter jobs assigned to Matthew
   const myJobs = useMemo(() => {
     return jobs.filter((j: Job) => j.assignedTechnician === technicianName);
   }, [jobs]);
@@ -59,6 +61,15 @@ export const TechnicianMyJobs: React.FC = () => {
           </li>
         ))}
       </ul>
+
+      {/* ✅ Embedded Timegrapher below job list */}
+      <div style={{ marginTop: "2rem" }}>
+        <h3>Timegrapher</h3>
+        <TechnicianTiming onSavePosition={() => {}} />
+
+      </div>
     </div>
   );
 };
+
+export default TechnicianMyJobs;

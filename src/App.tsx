@@ -1,6 +1,6 @@
 import { Outlet, Link } from "react-router-dom";
 import "./App.css";
-import FloatingDock from "./components/FloatingDock";
+
 
 export default function App() {
   return (
@@ -94,7 +94,7 @@ export default function App() {
       </div>
 
       {/* ⭐ FLOATING DOCK (GLOBAL) */}
-      <FloatingDock />
+      
     </>
   );
 }

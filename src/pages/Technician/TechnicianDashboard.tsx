@@ -1,6 +1,7 @@
 import { Link, Outlet } from "react-router-dom";
 import "./TechnicianDashboard.css";
 
+
 const TECHNICIAN_NAME = "Matthew"; // 👈 fixed technician identity
 
 export default function TechnicianDashboard() {
