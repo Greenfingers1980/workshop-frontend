@@ -25,8 +25,6 @@ export default function ImportButton() {
       }
 
       const json = await res.json();
-
-      // Navigate using React Router so Vercel SPA routing works
       navigate(`/technician/job/${json.jobId}`);
     } catch (err) {
       console.error("Import error:", err);
@@ -57,3 +55,4 @@ export default function ImportButton() {
     </label>
   );
 }
+
