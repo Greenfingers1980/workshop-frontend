@@ -1,4 +1,3 @@
-// ImportButton.tsx (React + TypeScript)
 import React from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -21,24 +20,37 @@ export default function ImportButton() {
       if (!res.ok) {
         const text = await res.text();
         console.error("Import failed", res.status, text);
-        // show user-friendly error UI here
+        alert("Import failed — see console for details.");
         return;
       }
 
       const json = await res.json();
-      // Use react-router navigation so Vercel serves index.html for client routes
+
+      // Navigate using React Router so Vercel SPA routing works
       navigate(`/technician/job/${json.jobId}`);
     } catch (err) {
-      console.error("Import error", err);
+      console.error("Import error:", err);
+      alert("Import error — see console for details.");
     }
   }
 
   return (
-    <label className="btn">
+    <label
+      style={{
+        padding: "0.7rem 1.2rem",
+        background: "#5a4632",
+        color: "white",
+        border: "none",
+        borderRadius: "6px",
+        cursor: "pointer",
+        display: "inline-block",
+        fontSize: "1rem"
+      }}
+    >
       Import file
       <input
         type="file"
-        accept=".csv,.json" // restrict to expected types
+        accept=".json,.csv"
         onChange={handleFileChange}
         style={{ display: "none" }}
       />
