@@ -1,7 +1,14 @@
 import { Link, Outlet } from "react-router-dom";
 import "./TechnicianDashboard.css";
 
+const TECHNICIAN_NAME = "Matthew"; // 👈 fixed technician identity
+
 export default function TechnicianDashboard() {
+  // Example local job data — replace with real data later if needed
+  const jobsInProgress = 2;
+  const completedJobs = 5;
+  const coursesStarted = 1;
+
   return (
     <div className="technician-wrapper">
 
@@ -21,7 +28,7 @@ export default function TechnicianDashboard() {
                 <Link to="/technician">Dashboard</Link>
               </li>
               <li>
-                <Link to="/technician/jobs">My Jobs</Link>
+                <Link to="/technician/my-jobs">My Jobs</Link>
               </li>
               <li>
                 <Link to="/technician/learning/courses">Learning – Courses</Link>
@@ -38,7 +45,7 @@ export default function TechnicianDashboard() {
 
           {/* Technician header panel */}
           <div className="technician-header">
-            <h1>Welcome Technician</h1>
+            <h1>Welcome, {TECHNICIAN_NAME}</h1>
             <p>Your workshop tasks and learning progress are shown below.</p>
           </div>
 
@@ -46,15 +53,15 @@ export default function TechnicianDashboard() {
           <div className="technician-stats">
             <div className="stat-box">
               <h3>Jobs in Progress</h3>
-              <p>—</p>
+              <p>{jobsInProgress}</p>
             </div>
             <div className="stat-box">
               <h3>Completed Jobs</h3>
-              <p>—</p>
+              <p>{completedJobs}</p>
             </div>
             <div className="stat-box">
               <h3>Courses Started</h3>
-              <p>—</p>
+              <p>{coursesStarted}</p>
             </div>
           </div>
 

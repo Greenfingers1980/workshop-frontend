@@ -1,4 +1,3 @@
-// src/pages/Technician/TechnicianMyJobs.tsx
 import React, { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useJobs } from "../../hooks/useJobs";
@@ -7,9 +6,10 @@ import type { Job } from "../../hooks/useJobs";
 export const TechnicianMyJobs: React.FC = () => {
   const { jobs } = useJobs();
 
-  // Later: filter by logged‑in technician
-  const technicianName = "Technician"; // placeholder until login system exists
+  // 👇 Fixed technician identity — always Matthew
+  const technicianName = "Matthew";
 
+  // Filter jobs assigned to Matthew
   const myJobs = useMemo(() => {
     return jobs.filter((j: Job) => j.assignedTechnician === technicianName);
   }, [jobs]);
@@ -17,10 +17,9 @@ export const TechnicianMyJobs: React.FC = () => {
   return (
     <div style={{ padding: "1rem" }}>
       <h2>My Jobs</h2>
+      <p>Technician: {technicianName}</p>
 
-      {myJobs.length === 0 && (
-        <p>No jobs assigned to you.</p>
-      )}
+      {myJobs.length === 0 && <p>No jobs assigned to you.</p>}
 
       <ul style={{ listStyle: "none", padding: 0 }}>
         {myJobs.map((job: Job) => (
@@ -34,7 +33,7 @@ export const TechnicianMyJobs: React.FC = () => {
               background: "#fafafa",
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "center"
+              alignItems: "center",
             }}
           >
             <div>
@@ -52,7 +51,7 @@ export const TechnicianMyJobs: React.FC = () => {
                 background: "#333",
                 color: "white",
                 borderRadius: "4px",
-                textDecoration: "none"
+                textDecoration: "none",
               }}
             >
               Open
