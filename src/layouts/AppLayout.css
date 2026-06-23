@@ -1,0 +1,8 @@
+.app-layout {
+  min-height: 100vh;
+  background-image: url("/morris-wallpaper.png");
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+

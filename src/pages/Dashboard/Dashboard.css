@@ -1,0 +1,107 @@
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+/* ---------------------------------
+   HERO BANNER
+---------------------------------- */
+
+.dashboard-hero {
+  position: relative;
+  height: 260px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: url("/assets/hero.png") center/cover no-repeat;
+  box-shadow: var(--shadow);
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: var(--space-xl);
+}
+
+.hero-title {
+  font-family: var(--font-heading);
+  font-size: 2.4rem;
+  color: white;
+  margin: 0;
+}
+
+.hero-subtitle {
+  color: #eaeaea;
+  margin-top: var(--space-sm);
+  font-size: 1.1rem;
+}
+
+/* ---------------------------------
+   QUICK ACTIONS
+---------------------------------- */
+
+.quick-actions {
+  display: flex;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+/* ---------------------------------
+   METRICS GRID
+---------------------------------- */
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-lg);
+}
+
+.metric-card {
+  text-align: center;
+}
+
+.metric-number {
+  font-size: 2.2rem;
+  font-weight: 600;
+  margin: var(--space-md) 0;
+  color: var(--accent-dark);
+}
+
+.metric-link {
+  color: var(--accent-dark);
+  font-size: 0.9rem;
+}
+
+/* ---------------------------------
+   RECENT ACTIVITY
+---------------------------------- */
+
+.activity-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.activity-list li {
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-muted);
+}
+
+/* ---------------------------------
+   RESPONSIVE
+---------------------------------- */
+
+@media (max-width: 700px) {
+  .hero-title {
+    font-size: 1.8rem;
+  }
+
+  .hero-subtitle {
+    font-size: 1rem;
+  }
+}

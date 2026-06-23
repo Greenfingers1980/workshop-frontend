@@ -1,0 +1,89 @@
+.technician-wrapper {
+  position: relative;
+  height: 100%;
+}
+
+.technician-wallpaper {
+  position: absolute;
+  inset: 0;
+  background-image: url("/wallpaper.jpg");
+  background-size: cover;
+  background-position: center;
+  opacity: 0.25;
+  z-index: -1;
+  pointer-events: none; 
+}
+
+.technician-grid {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 1rem;
+  height: 100%;
+  padding: 1rem;
+}
+
+.technician-sidebar {
+  background: rgba(255, 255, 255, 0.85);
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.tech-nav ul {
+  list-style: none;
+  padding: 0;
+}
+
+.tech-nav li {
+  margin-bottom: 0.75rem;
+}
+
+.tech-nav a {
+  text-decoration: none;
+  color: #333;
+  font-weight: 500;
+}
+
+.technician-content {
+  background: rgba(255, 255, 255, 0.75);
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.technician-header {
+  margin-bottom: 1rem;
+}
+
+.technician-stats {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.stat-box {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1rem;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.next-job-box {
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.view-job-btn {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: #333;
+  color: white;
+  border-radius: 4px;
+  text-decoration: none;
+}
+
+.technician-outlet {
+  margin-top: 1rem;
+}

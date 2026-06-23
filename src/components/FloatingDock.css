@@ -1,0 +1,64 @@
+.floating-dock {
+  position: fixed; /* ⭐ FIXED, NOT ABSOLUTE */
+  background: #2c2c2c;
+  color: white;
+  padding: 8px;
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  z-index: 999999;
+  cursor: grab;
+  transition: all 0.25s ease;
+  pointer-events: auto;
+}
+
+.dock-content {
+  display: flex;
+  gap: 6px;
+}
+
+.dock-btn {
+  background: #555;
+  padding: 6px 12px;
+  border-radius: 4px;
+  color: white;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* Docked modes */
+.dock-top,
+.dock-bottom,
+.dock-left,
+.dock-right {
+  position: fixed;
+  z-index: 999999;
+}
+
+.dock-top {
+  top: 0;
+  left: 0;
+  right: 0;
+  justify-content: center;
+}
+
+.dock-bottom {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  justify-content: center;
+}
+
+.dock-left {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  flex-direction: column;
+}
+
+.dock-right {
+  top: 0;
+  bottom: 0;
+  right: 0;
+  flex-direction: column;
+}

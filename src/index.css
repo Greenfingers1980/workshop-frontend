@@ -1,0 +1,375 @@
+/* ---------------------------------
+   GLOBAL THEME VARIABLES
+---------------------------------- */
+:root {
+  /* COLOURS */
+  --bg: #f7f7f5;            /* warm off-white */
+  --panel: #ffffff;         /* clean white */
+  --text: #222222;          /* charcoal */
+  --text-muted: #666666;    /* soft grey */
+  --accent: #b08d57;        /* brass/gold */
+  --accent-dark: #8a6c3e;   /* darker brass */
+  --line: #e0ded8;          /* subtle divider */
+  --danger: #b94a48;
+  --success: #3c763d;
+  --warning: #c09853;
+
+  /* TYPOGRAPHY */
+  --font-heading: "Playfair Display", serif;
+  --font-body: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+
+  /* SPACING */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+
+  /* RADIUS */
+  --radius: 6px;
+
+  /* SHADOWS */
+  --shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* ---------------------------------
+   BASE
+---------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Optional subtle paper texture if you add an asset
+body {
+  background: var(--bg) url("/textures/paper.png");
+  background-size: cover;
+}
+*/
+
+h1,
+h2,
+h3,
+h4,
+h5 {
+  font-family: var(--font-heading);
+  color: var(--text);
+  margin-top: var(--space-lg);
+  margin-bottom: var(--space-md);
+}
+
+p {
+  margin-top: 0;
+  margin-bottom: var(--space-md);
+  color: var(--text);
+}
+
+small,
+.muted {
+  color: var(--text-muted);
+}
+
+/* Links */
+
+a {
+  color: var(--accent-dark);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* ---------------------------------
+   LAYOUT SHELL
+---------------------------------- */
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* SIDEBAR */
+
+.sidebar {
+  width: 240px;
+  background: #ffffff;
+  border-right: 1px solid var(--line);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.sidebar-header {
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+  margin-bottom: var(--space-lg);
+}
+
+.sidebar-section-title {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: var(--space-md) 0 var(--space-xs);
+}
+
+.sidebar a {
+  display: block;
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-xs);
+  color: var(--text);
+  text-decoration: none;
+  border-radius: var(--radius);
+  font-size: 0.95rem;
+}
+
+.sidebar a:hover {
+  background: var(--line);
+}
+
+.sidebar a.active {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+/* MAIN CONTENT */
+
+.main-content {
+  flex: 1;
+  padding: var(--space-xl);
+}
+
+/* ---------------------------------
+   PANELS & CARDS
+---------------------------------- */
+
+.panel {
+  background: var(--panel);
+  padding: var(--space-lg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: var(--space-lg);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-md);
+}
+
+.panel-title {
+  font-family: var(--font-heading);
+  font-size: 1.4rem;
+}
+
+.panel-subtitle {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* ---------------------------------
+   BUTTONS
+---------------------------------- */
+
+button,
+.btn {
+  background: var(--accent);
+  color: #ffffff;
+  padding: 10px 18px;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: background 0.2s, box-shadow 0.2s, transform 0.05s;
+  box-shadow: var(--shadow);
+}
+
+button:hover,
+.btn:hover {
+  background: var(--accent-dark);
+}
+
+button:active,
+.btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.btn-secondary {
+  background: #ffffff;
+  color: var(--text);
+  border: 1px solid var(--line);
+  box-shadow: none;
+}
+
+.btn-secondary:hover {
+  background: var(--line);
+}
+
+/* ---------------------------------
+   FORMS
+---------------------------------- */
+
+label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  margin-bottom: var(--space-md);
+  background: #ffffff;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(176, 141, 87, 0.25);
+}
+
+/* ---------------------------------
+   TABLES (LEDGER STYLE)
+---------------------------------- */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--space-lg);
+  font-size: 0.95rem;
+}
+
+.table th,
+.table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.table th {
+  font-weight: 600;
+  color: var(--text-muted);
+  background: #f2f1ec;
+}
+
+.table tr:nth-child(even) td {
+  background: #faf9f6;
+}
+
+/* Status colours for invoices, jobs, etc. */
+
+.status-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+}
+
+.status-paid {
+  background: rgba(60, 118, 61, 0.1);
+  color: var(--success);
+}
+
+.status-part {
+  background: rgba(192, 152, 83, 0.1);
+  color: var(--warning);
+}
+
+.status-unpaid {
+  background: rgba(185, 74, 72, 0.1);
+  color: var(--danger);
+}
+
+/* ---------------------------------
+   UTILITIES
+---------------------------------- */
+
+.stack-sm > * + * {
+  margin-top: var(--space-sm);
+}
+
+.stack-md > * + * {
+  margin-top: var(--space-md);
+}
+
+.stack-lg > * + * {
+  margin-top: var(--space-lg);
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.flex-gap-md {
+  display: flex;
+  gap: var(--space-md);
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+/* ---------------------------------
+   RESPONSIVE
+---------------------------------- */
+
+@media (max-width: 900px) {
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+  }
+
+  .main-content {
+    padding: var(--space-lg);
+  }
+}
