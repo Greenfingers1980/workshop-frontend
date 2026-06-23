@@ -1,6 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
+import { RouterProvider } from "react-router-dom"; // 👈 added
+import { router } from "./router"; // 👈 import your router
+import "./index.css"; // optional, keep your global styles
 
 // Hide print buttons on Android
 if (/Android/i.test(navigator.userAgent)) {
@@ -16,8 +18,9 @@ type Job = {
   status: string;
 };
 
+// ✅ Render the RouterProvider instead of <App />
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <RouterProvider router={router} /> {/* 👈 provides routing context */}
   </React.StrictMode>
 );
