@@ -1,4 +1,5 @@
 import React from "react";
+import ImportButton from "../../components/ImportButton";
 
 export default function DataTools() {
 
@@ -88,7 +89,7 @@ export default function DataTools() {
         <label style={{ display: "block", marginBottom: "0.5rem" }}>
           Import Company Data
         </label>
-        <input type="file" accept="application/json" onChange={importData} />
+        <ImportButton />
       </div>
 
       <button
