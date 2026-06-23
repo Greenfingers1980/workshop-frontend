@@ -141,6 +141,7 @@ export const router = createBrowserRouter([
 
       /* Auth */
       { path: "login", element: <Login /> },
+      { path: "*", element: <NotFound /> },
     ],
   },
 ]);
