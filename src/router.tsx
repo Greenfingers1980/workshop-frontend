@@ -75,11 +75,12 @@ function StockItemEditorWrapper() {
   );
 }
 
+/* ✅ Main router configuration */
 export const router = createBrowserRouter([
   {
     path: "/",
     element: <App />,
-    errorElement: <NotFound />, // 👈 Custom error page
+    errorElement: <NotFound />, // custom error page
     children: [
       { index: true, element: <Dashboard /> },
 
@@ -94,7 +95,7 @@ export const router = createBrowserRouter([
         element: <TechnicianLayout />,
         children: [
           { index: true, element: <TechnicianDashboard /> },
-          { path: "jobs", element: <TechnicianMyJobs /> },
+          { path: "jobs", element: <TechnicianMyJobs /> }, // ✅ matches sidebar link
           { path: "job/:id", element: <TechnicianJobView /> },
           { path: "tools", element: <Tools /> },
         ],
@@ -141,6 +142,8 @@ export const router = createBrowserRouter([
 
       /* Auth */
       { path: "login", element: <Login /> },
+
+      /* Catch-all */
       { path: "*", element: <NotFound /> },
     ],
   },
