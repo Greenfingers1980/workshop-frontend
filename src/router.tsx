@@ -1,5 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 import App from "./App";
+/* Error Page */
+import NotFound from "./pages/NotFound";
 
 /* Dashboard */
 import Dashboard from "./pages/Dashboard/Dashboard";
@@ -57,8 +59,7 @@ import UploadPDF from "./pages/Admin/UploadPDF";
 /* Auth */
 import Login from "./pages/Login";
 
-/* Error Page */
-import NotFound from "./pages/NotFound";
+
 
 /* Wrapper for Stock Item Editor */
 import { useParams, useNavigate } from "react-router-dom";

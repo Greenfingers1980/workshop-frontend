@@ -27,7 +27,7 @@ export default function App() {
           top: 0,
           height: "100vh",
           overflowY: "auto",
-          zIndex: 10000
+          zIndex: 10000,
         }}
       >
         <nav
@@ -35,7 +35,7 @@ export default function App() {
             display: "flex",
             flexDirection: "column",
             gap: "0.5rem",
-            width: "100%"
+            width: "100%",
           }}
         >
           {/* MAIN */}
@@ -46,22 +46,14 @@ export default function App() {
 
           {/* ACCOUNTING */}
           <div style={{ marginTop: "1rem", opacity: 0.8 }}>Accounting</div>
-
           <Link to="/accounting/sales-ledger" className="ledger-button">Sales Ledger</Link>
           <Link to="/accounting/sales-receipts/new" className="ledger-button">New Sales Receipt</Link>
           <Link to="/accounting/customers" className="ledger-button">Customers</Link>
           <Link to="/accounting/suppliers" className="ledger-button">Suppliers</Link>
-
-          {/* PURCHASES — FIXED */}
           <Link to="/accounting/purchase-invoices" className="ledger-button">Purchase Invoices</Link>
           <Link to="/accounting/purchase-invoice/new" className="ledger-button">New Purchase Invoice</Link>
           <Link to="/accounting/supplier-payments" className="ledger-button">Supplier Payments</Link>
-
-          {/* SUPPLIER LEDGER — FIXED */}
-          {/* SupplierLedger requires an :id, so we link to suppliers list instead */}
           <Link to="/accounting/suppliers" className="ledger-button">Supplier Ledger</Link>
-
-          {/* BANK — FIXED */}
           <Link to="/accounting/bank/import" className="ledger-button">Import Bank Statement</Link>
           <Link to="/accounting/bank/reconcile/1" className="ledger-button">Bank Reconciliation</Link>
 
@@ -82,8 +74,8 @@ export default function App() {
           <Link to="/technician/learning/schedule" className="ledger-button">Study Schedule</Link>
           <Link to="/technician/learning/progress" className="ledger-button">My Progress</Link>
           <Link to="/technician" className="ledger-button">Technician Dashboard</Link>
+          <Link to="/technician/jobs" className="ledger-button">My Jobs</Link> {/* ✅ fixed route */}
           <Link to="/login" className="ledger-button">Technician Login</Link>
-
         </nav>
       </div>
 
@@ -95,10 +87,10 @@ export default function App() {
           flexGrow: 1,
           minHeight: "100vh",
           boxSizing: "border-box",
-          display: "flex"
+          display: "flex",
         }}
       >
-        <Outlet />
+        <Outlet /> {/* ✅ ensures nested routes render */}
       </div>
 
       {/* ⭐ FLOATING DOCK (GLOBAL) */}
