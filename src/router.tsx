@@ -57,6 +57,9 @@ import UploadPDF from "./pages/Admin/UploadPDF";
 /* Auth */
 import Login from "./pages/Login";
 
+/* Error Page */
+import NotFound from "./pages/NotFound";
+
 /* Wrapper for Stock Item Editor */
 import { useParams, useNavigate } from "react-router-dom";
 
@@ -76,6 +79,7 @@ export const router = createBrowserRouter([
   {
     path: "/",
     element: <App />,
+    errorElement: <NotFound />, // 👈 Custom error page
     children: [
       { index: true, element: <Dashboard /> },
 
@@ -84,7 +88,7 @@ export const router = createBrowserRouter([
       { path: "jobs/new", element: <NewJob /> },
       { path: "jobs/:id", element: <ViewJob /> },
 
-      /* Technician (NESTED ROUTES FIXED) */
+      /* Technician */
       {
         path: "technician",
         element: <TechnicianLayout />,
@@ -99,38 +103,24 @@ export const router = createBrowserRouter([
       /* Accounting */
       { path: "accounting/customers", element: <Customers /> },
       { path: "accounting/customers/:id", element: <CustomerView /> },
-
       { path: "accounting/sales-ledger", element: <SalesLedger /> },
       { path: "accounting/sales-invoice/new", element: <NewSalesInvoice /> },
       { path: "accounting/sales-receipts/new", element: <NewSalesReceipt /> },
-
       { path: "accounting/chart-of-accounts", element: <ChartOfAccounts /> },
       { path: "accounting/journal", element: <Journal /> },
       { path: "accounting/aged-debtors", element: <AgedDebtors /> },
-
       { path: "accounting/profit-and-loss", element: <ProfitAndLoss /> },
       { path: "accounting/balance-sheet", element: <BalanceSheet /> },
       { path: "accounting/audit-trail", element: <AuditTrail /> },
-
       { path: "accounting/suppliers", element: <Suppliers /> },
       { path: "accounting/suppliers/:id", element: <SupplierLedger /> },
-
-      /* Purchases */
       { path: "accounting/purchase-invoices", element: <PurchaseInvoices /> },
       { path: "accounting/purchase-invoices/:id", element: <PurchaseInvoiceView /> },
       { path: "accounting/purchase-invoice/new", element: <NewPurchaseInvoice /> },
-
-      /* Payments */
       { path: "accounting/supplier-payments", element: <SupplierPayments /> },
-
-      /* Bank */
       { path: "accounting/bank/import", element: <BankImport /> },
       { path: "accounting/bank/reconcile/:id", element: <BankReconcile /> },
-
-      /* Trial Balance */
       { path: "accounting/trial-balance", element: <TrialBalance /> },
-
-      /* Year End */
       { path: "accounting/year-end", element: <YearEnd /> },
 
       /* Stock */
