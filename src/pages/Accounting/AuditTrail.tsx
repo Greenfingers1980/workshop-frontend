@@ -1,39 +1,50 @@
+
 import { useMemo, useState } from "react";
 import { useAccounting } from "./AccountingContext";
 import AccountingMenu from "./AccountingMenu";
-import "./Accounting.css";
+
+
+// Strong definition pattern matching our Supabase schema
+interface AuditChange {
+  before: any;
+  after: any;
+}
+
+interface AuditLog {
+  timestamp: string;
+  action: string;
+  entity: string;
+  user_email?: string; // Missing critical compliance context variable
+  description: string;
+  changes: Record<string, AuditChange>;
+}
 
 export default function AuditTrail() {
   const { auditLogs } = useAccounting();
   const [selectedAction, setSelectedAction] = useState<string>("All");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
 
-  // Get unique actions
+  // 1. High Performance: Extract unique strings using an efficient linear Set mapping
   const actions = useMemo(() => {
-    const acts = new Set<string>();
-    acts.add("All");
-    for (const log of auditLogs) {
-      acts.add(log.action);
-    }
-    return Array.from(acts).sort();
+    if (!auditLogs) return ["All"];
+    const actionSet = new Set<string>(auditLogs.map((log: AuditLog) => log.action));
+    return ["All", ...Array.from(actionSet)].sort();
   }, [auditLogs]);
 
-  // Filter and sort logs
+  // 2. Optimized Filter & Sort mapping pass
   const filteredLogs = useMemo(() => {
-    let filtered = auditLogs;
-
+    if (!auditLogs) return [];
+    
+    let result = auditLogs;
     if (selectedAction !== "All") {
-      filtered = filtered.filter((log) => log.action === selectedAction);
+      result = result.filter((log: AuditLog) => log.action === selectedAction);
     }
 
-    // Sort by timestamp
-    const sorted = [...filtered].sort((a, b) => {
+    return [...result].sort((a: AuditLog, b: AuditLog) => {
       const timeA = new Date(a.timestamp).getTime();
       const timeB = new Date(b.timestamp).getTime();
       return sortOrder === "desc" ? timeB - timeA : timeA - timeB;
     });
-
-    return sorted;
   }, [auditLogs, selectedAction, sortOrder]);
 
   return (
@@ -42,138 +53,77 @@ export default function AuditTrail() {
         <AccountingMenu />
         <h1 className="accounting-title">Audit Trail</h1>
         <p className="accounting-subtitle">
-          Complete log of all accounting actions — who changed what, when, and why.
+          Complete compliance ledger mapping structural adjustments, inventory deductions, and balance shifts.
         </p>
 
         <hr className="divider" />
 
-        {/* Filters */}
-        <div
-          style={{
-            marginBottom: "1.5rem",
-            display: "flex",
-            gap: "1rem",
-            flexWrap: "wrap",
-            alignItems: "center"
-          }}
-        >
+        {/* Action Toolbars */}
+        <div style={{ marginBottom: "1.5rem", display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}>
           <div>
-            <label
-              htmlFor="action-filter"
-              style={{
-                fontWeight: "bold",
-                marginRight: "0.5rem",
-                display: "inline-block"
-              }}
-            >
-              Filter by Action:
+            <label htmlFor="action-filter" style={{ fontWeight: "bold", marginRight: "0.5rem" }}>
+              Filter Action:
             </label>
             <select
               id="action-filter"
               value={selectedAction}
               onChange={(e) => setSelectedAction(e.target.value)}
-              style={{
-                padding: "0.4rem 0.8rem",
-                borderRadius: "4px",
-                border: "1px solid #9b8b6f",
-                backgroundColor: "#fff",
-                cursor: "pointer",
-                fontFamily: "inherit"
-              }}
+              style={{ padding: "0.4rem 0.8rem", borderRadius: "4px", border: "1px solid #c8b79a", fontFamily: "inherit" }}
             >
-              {actions.map((action) => (
-                <option key={action} value={action}>
-                  {action}
-                </option>
+              {actions.map((act) => (
+                <option key={act} value={act}>{act}</option>
               ))}
             </select>
           </div>
 
-          <div>
-            <button
-              onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
-              style={{
-                padding: "0.4rem 0.8rem",
-                borderRadius: "4px",
-                border: "1px solid #9b8b6f",
-                backgroundColor: "#f7f1e3",
-                cursor: "pointer",
-                fontFamily: "inherit"
-              }}
-            >
-              {sortOrder === "desc" ? "↓ Newest First" : "↑ Oldest First"}
-            </button>
-          </div>
+          <button
+            className="small-button"
+            onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
+            style={{ padding: "0.45rem 0.8rem" }}
+          >
+            {sortOrder === "desc" ? "↓ Newest First" : "↑ Oldest First"}
+          </button>
         </div>
 
-        {/* Logs Table */}
+        {/* Main Records Presentation Grid */}
         {filteredLogs.length === 0 ? (
-          <div
-            style={{
-              padding: "2rem",
-              textAlign: "center",
-              color: "#666",
-              background: "#f7f1e3",
-              borderRadius: "4px"
-            }}
-          >
-            No audit logs recorded yet.
+          <div style={{ padding: "2rem", textAlign: "center", color: "#6b5c4a", background: "#e9ddc7", borderRadius: "4px" }}>
+            No matching audit events recorded in database parameters.
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table
-              className="ledger-table"
-              style={{ width: "100%", tableLayout: "auto" }}
-            >
+            <table className="ledger-table">
               <thead>
                 <tr>
-                  <th style={{ minWidth: "180px" }}>Timestamp</th>
-                  <th style={{ minWidth: "120px" }}>Action</th>
-                  <th style={{ minWidth: "100px" }}>Entity</th>
-                  <th style={{ minWidth: "150px" }}>Description</th>
-                  <th style={{ minWidth: "250px" }}>Changes</th>
+                  <th>Timestamp</th>
+                  <th>Action</th>
+                  <th>Technician/User</th>
+                  <th>Target Entity</th>
+                  <th>Description</th>
+                  <th>Value Changes Grid (Before / After)</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredLogs.map((log, idx) => (
+                {filteredLogs.map((log: AuditLog, idx) => (
                   <tr key={idx}>
-                    <td style={{ fontSize: "0.85rem", color: "#555" }}>
-                      {new Date(log.timestamp).toLocaleString()}
+                    <td style={{ fontSize: "0.85rem", whiteSpace: "nowrap" }}>
+                      {new Date(log.timestamp).toLocaleString("en-GB")}
                     </td>
-                    <td style={{ fontWeight: "bold", color: "#2c3e50" }}>
-                      {log.action}
+                    <td><span className="badge-action"><strong>{log.action}</strong></span></td>
+                    <td style={{ color: "#4a3f35", fontStyle: "italic" }}>
+                      {log.user_email || "System Auto-Process"}
                     </td>
-                    <td style={{ fontSize: "0.9rem", color: "#666" }}>
-                      {log.entity}
-                    </td>
-                    <td style={{ fontSize: "0.9rem", lineHeight: "1.4" }}>
-                      {log.description}
-                    </td>
-                    <td
-                      style={{
-                        fontSize: "0.8rem",
-                        fontFamily: "monospace",
-                        backgroundColor: "#f7f1e3",
-                        padding: "0.5rem",
-                        borderRadius: "4px"
-                      }}
-                    >
-                      <div style={{ maxHeight: "60px", overflowY: "auto" }}>
-                        {Object.entries(log.changes).map(
-                          ([field, change]: any, i) => (
-                            <div key={i} style={{ marginBottom: "0.3rem" }}>
-                              <strong>{field}:</strong>
-                              <br />
-                              <span style={{ color: "#c0504d" }}>
-                                ← {JSON.stringify(change.before).substring(0, 30)}
-                              </span>
-                              <br />
-                              <span style={{ color: "#2ecc71" }}>
-                                → {JSON.stringify(change.after).substring(0, 30)}
-                              </span>
-                            </div>
-                          )
-                        )}
+                    <td><code>{log.entity}</code></td>
+                    <td style={{ fontSize: "0.85rem" }}>{log.description}</td>
+                    <td>
+                      <div style={{ maxHeight: "80px", overflowY: "auto", fontSize: "0.75rem", fontFamily: "monospace" }}>
+                        {log.changes && Object.entries(log.changes).map(([field, change], i) => (
+                          <div key={i} style={{ marginBottom: "0.4rem", borderBottom: "1px dashed #d2c4a8" }}>
+                            <span style={{ color: "#7a1f1f" }}><strong>{field}:</strong></span>
+                            <div style={{ color: "#a24a4a" }}>⁃ Old: {JSON.stringify(change.before)}</div>
+                            <div style={{ color: "#2e6f40" }}>✚ New: {JSON.stringify(change.after)}</div>
+                          </div>
+                        ))}
                       </div>
                     </td>
                   </tr>
@@ -183,80 +133,20 @@ export default function AuditTrail() {
           </div>
         )}
 
-        {/* Summary Stats */}
-        <div
-          style={{
-            marginTop: "2rem",
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-            gap: "1rem"
-          }}
-        >
-          <div
-            style={{
-              padding: "1rem",
-              background: "#f7f1e3",
-              borderRadius: "6px",
-              border: "1px solid #d2c4a8"
-            }}
-          >
-            <div
-              style={{
-                fontSize: "0.85rem",
-                color: "#555",
-                marginBottom: "0.3rem"
-              }}
-            >
-              Total Changes
-            </div>
-            <div style={{ fontSize: "1.5rem", fontWeight: "bold" }}>
-              {auditLogs.length}
-            </div>
+        {/* Operational Analytics Metrics Widgets */}
+        <div style={{ marginTop: "2rem", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "1rem" }}>
+          <div style={{ padding: "1rem", background: "#fdfbf7", borderRadius: "6px", border: "1px solid #d2c4a8" }}>
+            <span style={{ fontSize: "0.8rem", color: "#6b5c4a" }}>Total Ledger Events</span>
+            <div style={{ fontSize: "1.75rem", fontWeight: "bold", color: "#4a3f35" }}>{auditLogs.length}</div>
           </div>
-
-          <div
-            style={{
-              padding: "1rem",
-              background: "#e8dcc8",
-              borderRadius: "6px",
-              border: "1px solid #9b8b6f"
-            }}
-          >
-            <div
-              style={{
-                fontSize: "0.85rem",
-                color: "#555",
-                marginBottom: "0.3rem"
-              }}
-            >
-              Filtered Results
-            </div>
-            <div style={{ fontSize: "1.5rem", fontWeight: "bold" }}>
-              {filteredLogs.length}
-            </div>
+          <div style={{ padding: "1rem", background: "#fdfbf7", borderRadius: "6px", border: "1px solid #d2c4a8" }}>
+            <span style={{ fontSize: "0.8rem", color: "#6b5c4a" }}>Matching Filter Rules</span>
+            <div style={{ fontSize: "1.75rem", fontWeight: "bold", color: "#4a3f35" }}>{filteredLogs.length}</div>
           </div>
-
-          <div
-            style={{
-              padding: "1rem",
-              background: "#d4edda",
-              borderRadius: "6px",
-              border: "1px solid #c3e6cb"
-            }}
-          >
-            <div
-              style={{
-                fontSize: "0.85rem",
-                color: "#555",
-                marginBottom: "0.3rem"
-              }}
-            >
-              Latest Change
-            </div>
-            <div style={{ fontSize: "0.9rem", fontWeight: "bold" }}>
-              {auditLogs.length > 0
-                ? new Date(auditLogs[0].timestamp).toLocaleTimeString()
-                : "N/A"}
+          <div style={{ padding: "1rem", background: "#e9ddc7", borderRadius: "6px", border: "1px solid #d2c4a8" }}>
+            <span style={{ fontSize: "0.8rem", color: "#6b5c4a" }}>Latest Structural Change</span>
+            <div style={{ fontSize: "0.85rem", fontWeight: "bold", color: "#4a3f35", marginTop: "0.4rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {auditLogs.length > 0 ? `${auditLogs[0].action} (${auditLogs[0].entity})` : "None"}
             </div>
           </div>
         </div>

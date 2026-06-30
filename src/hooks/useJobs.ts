@@ -4,12 +4,17 @@ export interface Job {
   id: number;
  customerId: number | null;
   customerName: string;      
-  description?: string;  
+  description?: string;
+  salesPrice?: number; // ADDED
+  technician?: string; // ADDED  
   // Clock details
   clockMake: string;
   clockModel: string;
   clockSerial: string;
   clockAge: string;
+  watch_make: string;
+  watch_model?: string;
+  caliber_number?: string;
 
   // Condition & service
   conditionNotes: string;

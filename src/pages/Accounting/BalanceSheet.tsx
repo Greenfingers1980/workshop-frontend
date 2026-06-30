@@ -1,631 +1,306 @@
 import { useMemo, useState } from "react";
 import { useAccounting } from "./AccountingContext";
 import AccountingMenu from "./AccountingMenu";
-import "./Accounting.css";
+
 
 interface BSRow {
   code: string;
   name: string;
   amount: number;
-  type?: string;
+  type: string;
 }
 
 interface BalanceSheetData {
   assets: {
     bank: BSRow[];
     stock: BSRow[];
+    wip: BSRow[]; // Horological Work-in-Progress Tracking
     other: BSRow[];
     total: number;
   };
   liabilities: {
     vat: BSRow[];
+    deposits: BSRow[]; // Unearned Customer Deposits tracking
     other: BSRow[];
     total: number;
   };
   equity: BSRow[];
   totalEquity: number;
-  stockValue: number;
-  vatLiability: number;
 }
 
 export default function BalanceSheet() {
   const { accounts, journalEntries } = useAccounting();
   const [selectedDepartment, setSelectedDepartment] = useState<string>("All");
 
-  // Get unique departments
+  // 1. Extract unique departments linearly
   const departments = useMemo(() => {
-    const depts = new Set<string>();
-    depts.add("All");
-    for (const entry of journalEntries) {
-      for (const line of entry.lines) {
+    if (!journalEntries) return ["All"];
+    const depts = new Set<string>(["All"]);
+    journalEntries.forEach(entry => {
+      entry.lines?.forEach(line => {
         if (line.department) depts.add(line.department);
-      }
-    }
+      });
+    });
     return Array.from(depts).sort();
   }, [journalEntries]);
 
-  // Calculate balance sheet data
+  // 2. Balance Sheet Computation Pipeline
   const data = useMemo<BalanceSheetData>(() => {
-    const totals = new Map<number, number>(); // accountId → net balance
+    const totals = new Map<number, number>();
 
-    // Sum journal lines by department filter
-    for (const entry of journalEntries) {
-      for (const line of entry.lines) {
-        if (
-          selectedDepartment !== "All" &&
-          line.department !== selectedDepartment
-        ) {
-          continue;
+    // Calculate aggregated balances using linear runtimes
+    journalEntries.forEach(entry => {
+      entry.lines?.forEach(line => {
+        // Departmental parsing safety guardrail
+        if (selectedDepartment !== "All" && line.department !== selectedDepartment) {
+          return;
         }
-        const prev = totals.get(line.accountId) ?? 0;
-        totals.set(line.accountId, prev + (line.debit - line.credit));
-      }
-    }
+        const currentBal = totals.get(line.accountId) ?? 0;
+        totals.set(line.accountId, currentBal + (line.debit - line.credit));
+      });
+    });
 
     const bankAccounts: BSRow[] = [];
     const stockAccounts: BSRow[] = [];
+    const wipAccounts: BSRow[] = [];
     const otherAssets: BSRow[] = [];
     const vatLiabilities: BSRow[] = [];
+    const depositLiabilities: BSRow[] = [];
     const otherLiabilities: BSRow[] = [];
     const equityAccounts: BSRow[] = [];
 
-    let stockValue = 0;
-    let vatLiability = 0;
+    accounts.forEach(acc => {
+      const netBalance = totals.get(acc.id) ?? 0;
+      if (netBalance === 0) return;
 
-    for (const acc of accounts) {
-      const bal = totals.get(acc.id) ?? 0;
-      if (bal === 0) continue;
+      const lowerName = acc.name.toLowerCase();
 
       if (acc.type === "Asset") {
-        const row = {
-          code: acc.code,
-          name: acc.name,
-          amount: bal,
-          type: acc.type
-        };
-
-        // Categorize assets
-        if (
-          acc.code === "1000" ||
-          acc.name.toLowerCase().includes("bank")
-        ) {
+        const row: BSRow = { code: acc.code, name: acc.name, amount: netBalance, type: acc.type };
+        
+        if (acc.code === "1000" || lowerName.includes("bank") || lowerName.includes("cash")) {
           bankAccounts.push(row);
-        } else if (
-          acc.code === "1200" ||
-          acc.name.toLowerCase().includes("stock")
-        ) {
+        } else if (acc.code === "1200" || lowerName.includes("stock") || lowerName.includes("parts inventory")) {
           stockAccounts.push(row);
-          stockValue += bal;
+        } else if (lowerName.includes("wip") || lowerName.includes("work in progress")) {
+          wipAccounts.push(row);
         } else {
           otherAssets.push(row);
         }
       }
 
       if (acc.type === "Liability") {
-        const row = {
-          code: acc.code,
-          name: acc.name,
-          amount: -bal,
-          type: acc.type
-        };
-
-        // Categorize liabilities
-        if (acc.code === "2200" || acc.name.toLowerCase().includes("vat")) {
+        // Liabilities naturally express as credit values on structural sheets
+        const row: BSRow = { code: acc.code, name: acc.name, amount: -netBalance, type: acc.type };
+        
+        if (acc.code === "2200" || lowerName.includes("vat") || lowerName.includes("tax")) {
           vatLiabilities.push(row);
-          vatLiability += -bal;
+        } else if (lowerName.includes("deposit") || lowerName.includes("prepayment")) {
+          depositLiabilities.push(row);
         } else {
           otherLiabilities.push(row);
         }
       }
 
       if (acc.type === "Equity") {
-        if (bal !== 0) {
-          equityAccounts.push({
-            code: acc.code,
-            name: acc.name,
-            amount: -bal,
-            type: acc.type
-          });
-        }
+        equityAccounts.push({ code: acc.code, name: acc.name, amount: -netBalance, type: acc.type });
       }
-    }
-
-    const bankTotal = bankAccounts.reduce((s, r) => s + r.amount, 0);
-    const stockTotal = stockAccounts.reduce((s, r) => s + r.amount, 0);
-    const otherAssetsTotal = otherAssets.reduce((s, r) => s + r.amount, 0);
-    const totalAssets = bankTotal + stockTotal + otherAssetsTotal;
-
-    const vatTotal = vatLiabilities.reduce((s, r) => s + r.amount, 0);
-    const otherLiabilitiesTotal = otherLiabilities.reduce(
-      (s, r) => s + r.amount,
-      0
-    );
-    const totalLiabilities = vatTotal + otherLiabilitiesTotal;
-
-    const totalEquity = equityAccounts.reduce((s, r) => s + r.amount, 0);
+    });
 
     return {
       assets: {
         bank: bankAccounts,
         stock: stockAccounts,
+        wip: wipAccounts,
         other: otherAssets,
-        total: totalAssets
+        total: [...bankAccounts, ...stockAccounts, ...wipAccounts, ...otherAssets].reduce((s, r) => s + r.amount, 0)
       },
       liabilities: {
         vat: vatLiabilities,
+        deposits: depositLiabilities,
         other: otherLiabilities,
-        total: totalLiabilities
+        total: [...vatLiabilities, ...depositLiabilities, ...otherLiabilities].reduce((s, r) => s + r.amount, 0)
       },
       equity: equityAccounts,
-      totalEquity: totalEquity,
-      stockValue: stockValue,
-      vatLiability: vatLiability
+      totalEquity: equityAccounts.reduce((s, r) => s + r.amount, 0)
     };
   }, [accounts, journalEntries, selectedDepartment]);
 
-  const balanced =
-    Math.abs(
-      data.assets.total - (data.liabilities.total + data.totalEquity)
-    ) < 0.005;
+  // Match Equations Guardrail (Assets = Liabilities + Equity)
+  const totalFunding = data.liabilities.total + data.totalEquity;
+  const isBalanced = Math.abs(data.assets.total - totalFunding) < 0.01;
+
+  // Reusable sub-row renderer
+  const renderBSRows = (rows: BSRow[], emptyMessage: string) => {
+    if (rows.length === 0) {
+      return (
+        <tr>
+          <td colSpan={3} style={{ color: "#6b5c4a", fontStyle: "italic" }}>
+            {emptyMessage}
+          </td>
+        </tr>
+      );
+    }
+    return rows.map((row, idx) => (
+      <tr key={idx}>
+        <td>{row.code}</td>
+        <td>{row.name}</td>
+        <td style={{ textAlign: "right" }}>£{row.amount.toFixed(2)}</td>
+      </tr>
+    ));
+  };
 
   return (
     <div className="accounting-container">
       <div className="parchment-card">
         <AccountingMenu />
-        <h1 className="accounting-title">Balance Sheet</h1>
-        <p className="accounting-subtitle">
-          Statement of financial position — Assets, Liabilities, and Equity.
-        </p>
+        
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h1 className="accounting-title">Balance Sheet</h1>
+            <p className="accounting-subtitle">Statement of financial position — Assets, Liabilities, and Equity.</p>
+          </div>
+          {/* Dynamic Balanced Indicator Flag */}
+          <div className={`badge-balance ${isBalanced ? "balanced" : "unbalanced"}`}>
+            {isBalanced ? "✅ Ledger Balanced" : "⚠️ Out of Balance"}
+          </div>
+        </div>
 
         <hr className="divider" />
 
-        {/* Department Filter */}
+        {/* Warning Callout for Departmental Balance Sheet Filtering */}
+        {selectedDepartment !== "All" && (
+          <div style={{ padding: "0.75rem", background: "#fff5f5", border: "1px solid #c27a7a", borderRadius: "4px", marginBottom: "1rem", fontSize: "0.85rem", color: "#7a1f1f" }}>
+            <strong>Accounting Alert:</strong> Filtering a Balance Sheet by department provides an operational view only. Overhead entries (like central bank accounts or VAT) will not balance properly out of context.
+          </div>
+        )}
+
+        {/* Department Filter Selector */}
         <div style={{ marginBottom: "1.5rem" }}>
-          <label
-            htmlFor="bs-dept-filter"
-            style={{
-              fontWeight: "bold",
-              marginRight: "0.5rem",
-              display: "inline-block"
-            }}
-          >
-            Filter by Department:
+          <label htmlFor="bs-dept-filter" style={{ fontWeight: "bold", marginRight: "0.5rem" }}>
+            Filter View by Department:
           </label>
           <select
             id="bs-dept-filter"
             value={selectedDepartment}
             onChange={(e) => setSelectedDepartment(e.target.value)}
-            style={{
-              padding: "0.4rem 0.8rem",
-              borderRadius: "4px",
-              border: "1px solid #9b8b6f",
-              backgroundColor: "#fff",
-              cursor: "pointer",
-              fontFamily: "inherit"
-            }}
+            style={{ padding: "0.4rem 0.8rem", borderRadius: "4px", border: "1px solid #c8b79a", fontFamily: "inherit" }}
           >
             {departments.map((dept) => (
-              <option key={dept} value={dept}>
-                {dept}
-              </option>
+              <option key={dept} value={dept}>{dept}</option>
             ))}
           </select>
         </div>
 
-        {/* ASSETS */}
-        <h2 className="section-title" style={{ marginTop: "2rem" }}>
-          Assets
-        </h2>
-
-        {/* Bank Accounts Subsection */}
-        <h3
-          style={{
-            marginTop: "1rem",
-            fontSize: "1rem",
-            color: "#555",
-            borderBottom: "1px solid #d2c4a8",
-            paddingBottom: "0.5rem"
-          }}
-        >
-          Bank Accounts
-        </h3>
+        {/* --- ASSETS SECTION --- */}
+        <h2 className="section-title" style={{ marginTop: "1.5rem", borderBottom: "2px solid #4a3f35" }}>1. Assets</h2>
+        
+        <h4 style={{ margin: "0.5rem 0 0.2rem 0", color: "#6b5c4a" }}>Liquid Bank Funds</h4>
         <table className="ledger-table">
           <thead>
             <tr>
               <th>Code</th>
-              <th>Account</th>
-              <th style={{ textAlign: "right" }}>Amount</th>
+              <th>Account Link</th>
+              <th style={{ textAlign: "right" }}>Balance</th>
             </tr>
           </thead>
-          <tbody>
-            {data.assets.bank.length === 0 ? (
-              <tr>
-                <td colSpan={3}>No bank accounts recorded.</td>
-              </tr>
-            ) : (
-              <>
-                {data.assets.bank.map((row, idx) => (
-                  <tr key={idx}>
-                    <td>{row.code}</td>
-                    <td>{row.name}</td>
-                    <td style={{ textAlign: "right" }}>
-                      £{row.amount.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-                <tr style={{ background: "#f0ebe3", fontWeight: "bold" }}>
-                  <td colSpan={2}>Bank Total</td>
-                  <td style={{ textAlign: "right" }}>
-                    £{data.assets.bank.reduce((s, r) => s + r.amount, 0).toFixed(2)}
-                  </td>
-                </tr>
-              </>
-            )}
-          </tbody>
+          <tbody>{renderBSRows(data.assets.bank, "No banking lines logged.")}</tbody>
         </table>
 
-        {/* Stock Valuation Subsection */}
-        <h3
-          style={{
-            marginTop: "1rem",
-            fontSize: "1rem",
-            color: "#555",
-            borderBottom: "1px solid #d2c4a8",
-            paddingBottom: "0.5rem"
-          }}
-        >
-          Stock & Inventory
-        </h3>
+        <h4 style={{ margin: "0.5rem 0 0.2rem 0", color: "#6b5c4a" }}>Stock & Component Inventory</h4>
         <table className="ledger-table">
           <thead>
             <tr>
               <th>Code</th>
-              <th>Account</th>
-              <th style={{ textAlign: "right" }}>Amount</th>
+              <th>Account Link</th>
+              <th style={{ textAlign: "right" }}>Balance</th>
             </tr>
           </thead>
-          <tbody>
-            {data.assets.stock.length === 0 ? (
-              <tr>
-                <td colSpan={3}>No stock accounts recorded.</td>
-              </tr>
-            ) : (
-              <>
-                {data.assets.stock.map((row, idx) => (
-                  <tr key={idx}>
-                    <td>{row.code}</td>
-                    <td>{row.name}</td>
-                    <td style={{ textAlign: "right" }}>
-                      £{row.amount.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-                <tr style={{ background: "#f0ebe3", fontWeight: "bold" }}>
-                  <td colSpan={2}>Stock Total</td>
-                  <td style={{ textAlign: "right" }}>
-                    £{data.assets.stock.reduce((s, r) => s + r.amount, 0).toFixed(2)}
-                  </td>
-                </tr>
-              </>
-            )}
-          </tbody>
+          <tbody>{renderBSRows(data.assets.stock, "No inventory assets logged.")}</tbody>
         </table>
 
-        {/* Other Assets Subsection */}
-        {data.assets.other.length > 0 && (
-          <>
-            <h3
-              style={{
-                marginTop: "1rem",
-                fontSize: "1rem",
-                color: "#555",
-                borderBottom: "1px solid #d2c4a8",
-                paddingBottom: "0.5rem"
-              }}
-            >
-              Other Assets
-            </h3>
-            <table className="ledger-table">
-              <thead>
-                <tr>
-                  <th>Code</th>
-                  <th>Account</th>
-                  <th style={{ textAlign: "right" }}>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.assets.other.map((row, idx) => (
-                  <tr key={idx}>
-                    <td>{row.code}</td>
-                    <td>{row.name}</td>
-                    <td style={{ textAlign: "right" }}>
-                      £{row.amount.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-                <tr style={{ background: "#f0ebe3", fontWeight: "bold" }}>
-                  <td colSpan={2}>Other Assets Total</td>
-                  <td style={{ textAlign: "right" }}>
-                    £{data.assets.other.reduce((s, r) => s + r.amount, 0).toFixed(2)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </>
-        )}
+        <h4 style={{ margin: "0.5rem 0 0.2rem 0", color: "#6b5c4a" }}>Work-In-Progress (Pre-Allocated Job Parts)</h4>
+        <table className="ledger-table">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Account Link</th>
+              <th style={{ textAlign: "right" }}>Balance</th>
+            </tr>
+          </thead>
+          <tbody>{renderBSRows(data.assets.wip, "No active work-in-progress tracked.")}</tbody>
+        </table>
 
-        {/* Total Assets */}
-        <div
-          style={{
-            marginTop: "1rem",
-            padding: "1rem",
-            background: "#e8dcc8",
-            borderRadius: "4px",
-            fontWeight: "bold",
-            fontSize: "1.1rem",
-            display: "flex",
-            justifyContent: "space-between"
-          }}
-        >
-          <span>TOTAL ASSETS</span>
+        <div className="summary-row" style={{ display: "flex", justifyContent: "space-between", padding: "0.5rem", background: "#e9ddc7", fontWeight: "bold", marginBottom: "1.5rem" }}>
+          <span>TOTAL ASSETS (A)</span>
           <span>£{data.assets.total.toFixed(2)}</span>
         </div>
 
-        <hr className="divider" />
-
-        {/* LIABILITIES */}
-        <h2 className="section-title" style={{ marginTop: "2rem" }}>
-          Liabilities
-        </h2>
-
-        {/* VAT Liability Subsection */}
-        <h3
-          style={{
-            marginTop: "1rem",
-            fontSize: "1rem",
-            color: "#c0504d",
-            borderBottom: "2px solid #c0504d",
-            paddingBottom: "0.5rem"
-          }}
-        >
-          VAT Liability
-        </h3>
+        {/* --- LIABILITIES SECTION --- */}
+        <h2 className="section-title" style={{ marginTop: "1.5rem", borderBottom: "2px solid #4a3f35" }}>2. Liabilities</h2>
+        
+        <h4 style={{ margin: "0.5rem 0 0.2rem 0", color: "#6b5c4a" }}>HMRC VAT Subledger</h4>
         <table className="ledger-table">
           <thead>
             <tr>
               <th>Code</th>
-              <th>Account</th>
-              <th style={{ textAlign: "right" }}>Amount</th>
+              <th>Account Link</th>
+              <th style={{ textAlign: "right" }}>Balance</th>
             </tr>
           </thead>
-          <tbody>
-            {data.liabilities.vat.length === 0 ? (
-              <tr>
-                <td colSpan={3}>No VAT recorded.</td>
-              </tr>
-            ) : (
-              <>
-                {data.liabilities.vat.map((row, idx) => (
-                  <tr key={idx} style={{ background: "#fde8e6" }}>
-                    <td>{row.code}</td>
-                    <td>{row.name}</td>
-                    <td style={{ textAlign: "right", fontWeight: "bold" }}>
-                      £{row.amount.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-                <tr
-                  style={{
-                    background: "#f5c6cb",
-                    fontWeight: "bold",
-                    color: "#721c24"
-                  }}
-                >
-                  <td colSpan={2}>VAT Total</td>
-                  <td style={{ textAlign: "right" }}>
-                    £{data.liabilities.vat.reduce((s, r) => s + r.amount, 0).toFixed(2)}
-                  </td>
-                </tr>
-              </>
-            )}
-          </tbody>
+          <tbody>{renderBSRows(data.liabilities.vat, "No VAT values logged.")}</tbody>
         </table>
 
-        {/* Other Liabilities Subsection */}
-        {data.liabilities.other.length > 0 && (
-          <>
-            <h3
-              style={{
-                marginTop: "1rem",
-                fontSize: "1rem",
-                color: "#555",
-                borderBottom: "1px solid #d2c4a8",
-                paddingBottom: "0.5rem"
-              }}
-            >
-              Other Liabilities
-            </h3>
-            <table className="ledger-table">
-              <thead>
-                <tr>
-                  <th>Code</th>
-                  <th>Account</th>
-                  <th style={{ textAlign: "right" }}>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.liabilities.other.map((row, idx) => (
-                  <tr key={idx}>
-                    <td>{row.code}</td>
-                    <td>{row.name}</td>
-                    <td style={{ textAlign: "right" }}>
-                      £{row.amount.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-                <tr style={{ background: "#f0ebe3", fontWeight: "bold" }}>
-                  <td colSpan={2}>Other Liabilities Total</td>
-                  <td style={{ textAlign: "right" }}>
-                    £{data.liabilities.other.reduce((s, r) => s + r.amount, 0).toFixed(2)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </>
-        )}
+        <h4 style={{ margin: "0.5rem 0 0.2rem 0", color: "#6b5c4a" }}>Customer Repair Deposits (Unearned Funds)</h4>
+        <table className="ledger-table">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Account Link</th>
+              <th style={{ textAlign: "right" }}>Balance</th>
+            </tr>
+          </thead>
+          <tbody>{renderBSRows(data.liabilities.deposits, "No client repair deposits held.")}</tbody>
+        </table>
 
-        {/* Total Liabilities */}
-        <div
-          style={{
-            marginTop: "1rem",
-            padding: "1rem",
-            background: "#f8e6e3",
-            borderRadius: "4px",
-            fontWeight: "bold",
-            fontSize: "1.1rem",
-            display: "flex",
-            justifyContent: "space-between"
-          }}
-        >
-          <span>TOTAL LIABILITIES</span>
+        <div className="summary-row" style={{ display: "flex", justifyContent: "space-between", padding: "0.5rem", background: "#e9ddc7", fontWeight: "bold", marginBottom: "1.5rem" }}>
+          <span>TOTAL LIABILITIES (B)</span>
           <span>£{data.liabilities.total.toFixed(2)}</span>
         </div>
 
-        <hr className="divider" />
-
-        {/* EQUITY */}
-        <h2 className="section-title" style={{ marginTop: "2rem" }}>
-          Equity
-        </h2>
-
+        {/* --- EQUITY SECTION --- */}
+        <h2 className="section-title" style={{ marginTop: "1.5rem", borderBottom: "2px solid #4a3f35" }}>3. Capital & Equity</h2>
         <table className="ledger-table">
           <thead>
             <tr>
               <th>Code</th>
-              <th>Account</th>
-              <th style={{ textAlign: "right" }}>Amount</th>
+              <th>Account Link</th>
+              <th style={{ textAlign: "right" }}>Balance</th>
             </tr>
           </thead>
-          <tbody>
-            {data.equity.length === 0 ? (
-              <tr>
-                <td colSpan={3}>No equity balances recorded.</td>
-              </tr>
-            ) : (
-              <>
-                {data.equity.map((row, idx) => (
-                  <tr key={idx}>
-                    <td>{row.code}</td>
-                    <td>{row.name}</td>
-                    <td style={{ textAlign: "right" }}>
-                      £{row.amount.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-                <tr style={{ background: "#f0ebe3", fontWeight: "bold" }}>
-                  <td colSpan={2}>Total Equity</td>
-                  <td style={{ textAlign: "right" }}>
-                    £{data.totalEquity.toFixed(2)}
-                  </td>
-                </tr>
-              </>
-            )}
-          </tbody>
+          <tbody>{renderBSRows(data.equity, "No capital lines logged.")}</tbody>
         </table>
 
-        <hr className="divider" />
-
-        {/* VALIDATION */}
-        <div style={{ marginTop: "1.5rem" }}>
-          {balanced ? (
-            <div
-              style={{
-                padding: "0.75rem",
-                background: "#d4edda",
-                color: "#155724",
-                borderRadius: "4px",
-                border: "1px solid #c3e6cb"
-              }}
-            >
-              ✓ Balance Sheet balances correctly. Assets (£
-              {data.assets.total.toFixed(2)}) = Liabilities (£
-              {data.liabilities.total.toFixed(2)}) + Equity (£
-              {data.totalEquity.toFixed(2)})
-            </div>
-          ) : (
-            <div
-              style={{
-                padding: "0.75rem",
-                background: "#f8d7da",
-                color: "#721c24",
-                borderRadius: "4px",
-                border: "1px solid #f5c6cb"
-              }}
-            >
-              ✗ Balance Sheet does not balance — check postings.
-            </div>
-          )}
+        <div className="summary-row" style={{ display: "flex", justifyContent: "space-between", padding: "0.5rem", background: "#e9ddc7", fontWeight: "bold", marginBottom: "1.5rem" }}>
+          <span>TOTAL EQUITY (C)</span>
+          <span>£{data.totalEquity.toFixed(2)}</span>
         </div>
 
-        {/* Summary Card */}
-        <div
-          style={{
-            marginTop: "2rem",
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-            gap: "1rem"
+        {/* --- TOTAL FUNDING SUMMARY FOOTER --- */}
+        <div 
+          className="summary-row" 
+          style={{ 
+            display: "flex", 
+            justifyContent: "space-between", 
+            padding: "0.75rem 0.5rem", 
+            background: "#4a3f35", 
+            color: "#f7f1e3", 
+            fontWeight: "bold",
+            borderRadius: "4px"
           }}
         >
-          <div
-            style={{
-              padding: "1rem",
-              background: "#f7f1e3",
-              borderRadius: "6px",
-              border: "1px solid #d2c4a8"
-            }}
-          >
-            <div style={{ fontSize: "0.85rem", color: "#555", marginBottom: "0.3rem" }}>
-              Stock Valuation
-            </div>
-            <div style={{ fontSize: "1.5rem", fontWeight: "bold" }}>
-              £{data.stockValue.toFixed(2)}
-            </div>
-          </div>
-
-          <div
-            style={{
-              padding: "1rem",
-              background: "#fde8e6",
-              borderRadius: "6px",
-              border: "2px solid #c0504d"
-            }}
-          >
-            <div style={{ fontSize: "0.85rem", color: "#555", marginBottom: "0.3rem" }}>
-              VAT Liability
-            </div>
-            <div style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#c0504d" }}>
-              £{data.vatLiability.toFixed(2)}
-            </div>
-          </div>
-
-          <div
-            style={{
-              padding: "1rem",
-              background: "#e8dcc8",
-              borderRadius: "6px",
-              border: "1px solid #9b8b6f"
-            }}
-          >
-            <div style={{ fontSize: "0.85rem", color: "#555", marginBottom: "0.3rem" }}>
-              Net Working Capital
-            </div>
-            <div style={{ fontSize: "1.5rem", fontWeight: "bold" }}>
-              £
-              {(
-                data.assets.total - data.liabilities.total
-              ).toFixed(2)}
-            </div>
-          </div>
+          <span>TOTAL FUNDING & EQUITY (B + C)</span>
+          <span>£{totalFunding.toFixed(2)}</span>
         </div>
       </div>
     </div>

@@ -1,71 +1,156 @@
-.technician-wrapper {
-  position: relative;
-  height: 100%;
-}
-
-.technician-wallpaper {
-  position: absolute;
-  inset: 0;
-  background-image: url("/wallpaper.jpg");
-  background-size: cover;
-  background-position: center;
-  opacity: 0.25;
-  z-index: -1;
-}
-
-.technician-grid {
+/* --- MAIN TECHNICIAN BACKSTAGE SYSTEM NAVIGATION ARCHITECTURE --- */
+.tech-layout {
   display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 1rem;
-  height: 100%;
-  padding: 1rem;
+  grid-template-columns: 320px 1fr;
+  gap: var(--space-xl);
+  width: 100%;
+  align-items: start;
+  padding: var(--space-md);
+  /* Leaves room for your unified application sidebar navigation */
+  margin-left: 220px; 
 }
 
-.technician-sidebar {
-  background: rgba(255, 255, 255, 0.85);
-  padding: 1rem;
-  border-radius: 8px;
+/* LEFT-HAND BENCH CONTROL CONSOLE PANEL */
+.tech-left {
+  background: #fdfbf7;
+  border: 1px solid #d2c4a8;
+  padding: var(--space-lg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
-.tech-nav ul {
+/* RIGHT-HAND REPAIR TRACKING DASHBOARD ENGINE */
+.tech-right {
+  padding: 0 var(--space-md);
+}
+
+.tech-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-lg);
+}
+
+.tech-main {
+  display: flex;
+  gap: var(--space-lg);
+  align-items: flex-start;
+}
+
+.tech-column {
+  flex: 1;
+}
+
+.tech-column--full {
+  flex: 1 1 100%;
+}
+
+/* --- THE UNIFIED PARCHMENT WORK BENCH CARDS --- */
+.tech-panel {
+  background: #fdfbf7;
+  color: #4a3f35;
+  border: 1px solid #d2c4a8;
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: var(--space-md);
+  box-shadow: var(--shadow);
+  pointer-events: auto; /* Guarantees layout blocks pass input gestures safely */
+}
+
+/* COOPERATIVE SUBPANEL: Time-Grapher & Escapement Calibration Display Terminal */
+.tech-panel--timing {
+  background: #2c251e; /* Swapped harsh pure black #111 for a premium deep warm espresso brown */
+  color: #d1b47c;      /* Swapped electric neon green for an illuminated crisp technical amber/gold */
+  border-color: #4a3f35;
+  font-family: monospace;
+}
+
+.tech-panel--photos img {
+  max-width: 120px;
+  max-height: 120px;
+  display: block;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid #d2c4a8;
+}
+
+.tech-row {
+  margin-bottom: var(--space-xs);
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.tech-row--stats > div {
+  margin-right: var(--space-xl);
+}
+
+.tech-label {
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: #9b8b6f;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tech-hint {
+  font-size: 0.7rem;
+  color: #6b5c4a;
+  font-style: italic;
+}
+
+/* --- IMAGES PRESENTATION REPOSITORIES --- */
+.tech-photos-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.tech-photo {
+  border: 1px dashed #c8b79a;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+}
+
+/* --- BENCH TICKETS ITERATION LISTS --- */
+.tech-job-list {
   list-style: none;
   padding: 0;
+  margin: 0;
 }
 
-.tech-nav li {
-  margin-bottom: 0.75rem;
-}
-
-.tech-nav a {
-  text-decoration: none;
-  color: #333;
-  font-weight: 500;
-}
-
-.technician-content {
-  background: rgba(255, 255, 255, 0.75);
-  padding: 1rem;
-  border-radius: 8px;
-}
-
-.technician-header {
-  margin-bottom: 1rem;
-}
-
-.technician-stats {
+.tech-job-item {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-sm) 0;
+  border-bottom: 1px dashed #d2c4a8;
+  pointer-events: auto;
 }
 
-.stat-box {
-  flex: 1;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 1rem;
-  border-radius: 6px;
-  text-align: center;
+/* HIGH-ACCELERATOR BENCH LINKS */
+.job-link {
+  color: #bca380; /* Swapped neon blue for a beautiful burnished gold anchor accent style */
+  font-weight: 600;
+  text-decoration: none;
+  display: block; /* Expands click target mapping out across the entire text track block */
+  width: 100%;
+  transition: color 0.15s ease;
+  position: relative;
+  z-index: 10;
 }
 
-.technician-outlet {
-  margin-top: 1rem;
+.job-link:hover {
+  color: #4a3f35; /* Darkens softly on hover to provide clean interaction response */
+  text-decoration: underline;
+}
+
+/* RESPONSIVE SUB-DECK MODIFIERS */
+@media (max-width: 900px) {
+  .tech-layout {
+    grid-template-columns: 1fr; /* Shifts into a structured single column stream on small tablets */
+    margin-left: 0;             /* Retracts sidebar offset bounds to save screen space */
+  }
 }

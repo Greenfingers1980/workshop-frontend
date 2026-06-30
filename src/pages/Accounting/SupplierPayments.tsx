@@ -1,120 +1,122 @@
-import { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAccounting } from "./AccountingContext";
 import type { Supplier } from "./AccountingContext";
 import AccountingMenu from "./AccountingMenu";
-import "./Accounting.css";
 
 export default function SupplierPayments() {
-  const { suppliers, accounts, addSupplierPayment } = useAccounting();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { suppliers, accounts, addSupplierPayment, loading } = useAccounting();
 
-  // Bank accounts = Asset accounts
-  const bankAccounts = accounts.filter(a => a.type === "Asset");
+  const targetQuerySupplierId = searchParams.get("supplierId");
 
-  const [supplierId, setSupplierId] = useState<number | "">(
-    suppliers[0]?.id ?? ""
-  );
-  const [bankAccountId, setBankAccountId] = useState<number | "">(
-    bankAccounts[0]?.id ?? ""
-  );
-  const [date, setDate] = useState<string>(() =>
-    new Date().toISOString().slice(0, 10)
-  );
-  const [amount, setAmount] = useState("");
+  const [supplierId, setSupplierId] = useState<number | "">("");
+  const [bankAccountId, setBankAccountId] = useState<number | "">("");
+  const [invoiceId, setInvoiceId] = useState<string>("");
+  const [method, setMethod] = useState<string>("Bank Transfer");
+  const [date, setDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [amount, setAmount] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const validBankAccounts = useMemo(() => {
+    return accounts.filter(a => 
+      a.type === "Asset" && 
+      (a.code === "1000" || a.name.toLowerCase().includes("bank") || a.name.toLowerCase().includes("cash"))
+    );
+  }, [accounts]);
+
+  useEffect(() => {
+    if (targetQuerySupplierId) {
+      setSupplierId(Number(targetQuerySupplierId));
+    } else if (suppliers.length > 0 && !supplierId) {
+      setSupplierId(suppliers[0].id);
+    }
+  }, [suppliers, targetQuerySupplierId, supplierId]);
+
+  useEffect(() => {
+    if (validBankAccounts.length > 0 && !bankAccountId) {
+      setBankAccountId(validBankAccounts[0].id);
+    }
+  }, [validBankAccounts, bankAccountId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const parsedAmount = Math.round(parseFloat(amount) * 100) / 100;
 
-    if (!supplierId || !bankAccountId || !amount.trim()) {
-      alert("Please complete all fields.");
+    if (!supplierId || !bankAccountId || isNaN(parsedAmount) || parsedAmount <= 0) {
+      alert("Validation Error: Please complete all operational form variables.");
       return;
     }
 
-    addSupplierPayment({
-      supplierId: supplierId as number,
-      bankAccountId: bankAccountId as number,
-      date,
-      amount: parseFloat(amount)
-    });
+    setIsSubmitting(true);
+    try {
+      await addSupplierPayment({
+        supplierId: supplierId as number,
+        invoiceId: Number(invoiceId) || 0,
+        method: method,
+        bankAccountId: Number(bankAccountId) || 0,
+        date: date,
+        amount: parsedAmount
+      });
 
-    setAmount("");
+      alert("🎉 Payment successfully recorded.");
+      navigate("/accounting/supplier-ledger");
+    } catch (err) {
+      console.error(err);
+      alert("Database error: Could not commit payment.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <div className="accounting-container">
-      <div className="parchment-card">
+    <div className="accounting-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", padding: "2rem" }}>
+      {/* Menu is now full-width and outside the card */}
+      <div style={{ width: "100%", maxWidth: "900px" }}>
         <AccountingMenu />
-        <h1 className="accounting-title">Supplier Payments</h1>
-        <p className="accounting-subtitle">
-          Record payments made to suppliers and automatically post them to the ledger.
-        </p>
+      </div>
 
+      {/* Card increased to 900px for a more expansive look */}
+      <div className="parchment-card" style={{ width: "100%", maxWidth: "900px", padding: "2rem" }}>
+        <h1 className="accounting-title" style={{ textAlign: "center" }}>Supplier Payments Control</h1>
         <hr className="divider" />
-
-        {/* ---------------------- */}
-        {/* PAYMENT FORM */}
-        {/* ---------------------- */}
-        <h2 className="section-title">Record Payment</h2>
-
-        <form className="account-form" onSubmit={handleSubmit}>
-          <div className="form-row">
+        
+        <form className="account-form" onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          {/* Grid layout for balanced form fields */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "20px" }}>
             <label>
-              Supplier
-              <select
-                value={supplierId}
-                onChange={e =>
-                  setSupplierId(e.target.value ? Number(e.target.value) : "")
-                }
-              >
-                {suppliers.map((s: Supplier) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
+              Target Supplier
+              <select value={supplierId} onChange={e => setSupplierId(Number(e.target.value))} required>
+                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </label>
-
             <label>
-              Bank Account
-              <select
-                value={bankAccountId}
-                onChange={e =>
-                  setBankAccountId(e.target.value ? Number(e.target.value) : "")
-                }
-              >
-                {bankAccounts.map(a => (
-                  <option key={a.id} value={a.id}>
-                    {a.code} {a.name}
-                  </option>
-                ))}
+              Payment Method
+              <input type="text" value={method} onChange={e => setMethod(e.target.value)} required />
+            </label>
+            <label>
+              Invoice ID (Optional)
+              <input type="number" value={invoiceId} onChange={e => setInvoiceId(e.target.value)} placeholder="0" />
+            </label>
+          </div>
+          
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+            <label>
+              Source Bank Account
+              <select value={bankAccountId} onChange={e => setBankAccountId(Number(e.target.value))} required>
+                {validBankAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </label>
-
             <label>
-              Date
-              <input
-                type="date"
-                value={date}
-                onChange={e => setDate(e.target.value)}
-              />
+              Amount (£)
+              <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required />
             </label>
           </div>
 
-          <div className="form-row">
-            <label>
-              Amount
-              <input
-                type="number"
-                step="0.01"
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
-                required
-              />
-            </label>
-          </div>
-
-          <div className="form-actions">
-            <button type="submit" className="ledger-button">
-              Record Payment
+          <div style={{ display: "flex", justifyContent: "center", marginTop: "1rem" }}>
+            <button type="submit" className="ledger-button active" disabled={isSubmitting} style={{ padding: "1rem 3rem" }}>
+              {isSubmitting ? "Processing..." : "⚡ Commit Outbound Payment"}
             </button>
           </div>
         </form>

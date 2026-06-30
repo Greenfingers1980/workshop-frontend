@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useAccounting } from "./AccountingContext";
 import AccountingMenu from "./AccountingMenu";
-import "./Accounting.css";
+
 
 interface TrialBalanceRow {
   accountId: number;
@@ -14,64 +14,56 @@ interface TrialBalanceRow {
 }
 
 export default function TrialBalance() {
-  const { accounts, journalEntries } = useAccounting();
+  const { accounts, journalEntries, loading } = useAccounting();
   const [selectedDepartment, setSelectedDepartment] = useState<string>("All");
 
-  // Get all unique departments from journal entries
+  // 1. High Performance: Isolate available department filters using single-pass sets
   const departments = useMemo(() => {
-    const depts = new Set<string>();
-    depts.add("All");
-    for (const entry of journalEntries) {
-      for (const line of entry.lines) {
-        if (line.department) {
-          depts.add(line.department);
-        }
-      }
-    }
+    if (!journalEntries) return ["All"];
+    const depts = new Set<string>(["All"]);
+    journalEntries.forEach(entry => {
+      entry.lines?.forEach(line => {
+        if (line.department) depts.add(line.department);
+      });
+    });
     return Array.from(depts).sort();
   }, [journalEntries]);
 
-  // Calculate rows with filtering by department
+  // 2. High Precision Account Balancing Pipeline
   const rows = useMemo<TrialBalanceRow[]>(() => {
-    const map = new Map<
-      number,
-      { debit: number; credit: number; type: string }
-    >();
+    const map = new Map<number, { debit: number; credit: number; type: string }>();
 
-    // Initialize all accounts with their types
-    for (const acc of accounts) {
+    // Seed accounting parameters instantly
+    accounts.forEach(acc => {
       map.set(acc.id, { debit: 0, credit: 0, type: acc.type });
-    }
+    });
 
-    // Sum through journal entries, filtering by department
-    for (const entry of journalEntries) {
-      for (const line of entry.lines) {
-        // Filter by selected department
-        if (
-          selectedDepartment !== "All" &&
-          line.department !== selectedDepartment
-        ) {
-          continue;
+    // Populate balances from general journal streams
+    journalEntries.forEach(entry => {
+      entry.lines?.forEach(line => {
+        // Apply department validation checks safely
+        if (selectedDepartment !== "All" && line.department !== selectedDepartment) {
+          return;
         }
 
         const current = map.get(line.accountId);
         if (current) {
           map.set(line.accountId, {
-            debit: current.debit + line.debit,
-            credit: current.credit + line.credit,
+            debit: Math.round((current.debit + line.debit) * 100) / 100,
+            credit: Math.round((current.credit + line.credit) * 100) / 100,
             type: current.type
           });
         }
-      }
-    }
+      });
+    });
 
     const result: TrialBalanceRow[] = [];
-    for (const acc of accounts) {
+    accounts.forEach(acc => {
       const totals = map.get(acc.id) ?? { debit: 0, credit: 0, type: acc.type };
-      const balance = totals.debit - totals.credit;
+      const netBalance = totals.debit - totals.credit;
 
-      // Only show non-zero accounts
-      if (totals.debit !== 0 || totals.credit !== 0 || balance !== 0) {
+      // Filter out raw inactive accounts cleanly to save screen real estate
+      if (totals.debit !== 0 || totals.credit !== 0 || Math.abs(netBalance) > 0.005) {
         result.push({
           accountId: acc.id,
           code: acc.code,
@@ -79,175 +71,154 @@ export default function TrialBalance() {
           type: totals.type,
           debit: totals.debit,
           credit: totals.credit,
-          balance: balance
+          balance: netBalance
         });
       }
-    }
+    });
 
-    // Sort by account code
     return result.sort((a, b) => a.code.localeCompare(b.code));
   }, [accounts, journalEntries, selectedDepartment]);
 
-  // Calculate totals
-  const totals = useMemo(
-    () => ({
-      debit: rows.reduce((sum, r) => sum + r.debit, 0),
-      credit: rows.reduce((sum, r) => sum + r.credit, 0),
-      balanceDebit: rows
-        .filter(r => r.balance > 0)
-        .reduce((sum, r) => sum + r.balance, 0),
-      balanceCredit: rows
-        .filter(r => r.balance < 0)
-        .reduce((sum, r) => sum - r.balance, 0)
-    }),
-    [rows]
-  );
+  // 3. Compute Double-Entry Verification Totals
+  const totals = useMemo(() => {
+    let rawDebitSum = 0;
+    let rawCreditSum = 0;
+    let netDebitBalanceSum = 0;
+    let netCreditBalanceSum = 0;
 
-  const balanced =
-    Math.abs(totals.debit - totals.credit) < 0.005 &&
-    Math.abs(totals.balanceDebit - totals.balanceCredit) < 0.005;
+    rows.forEach(r => {
+      rawDebitSum += r.debit;
+      rawCreditSum += r.credit;
+      
+      if (r.balance > 0) netDebitBalanceSum += r.balance;
+      else if (r.balance < 0) netCreditBalanceSum += Math.abs(r.balance);
+    });
+
+    return {
+      debit: Math.round(rawDebitSum * 100) / 100,
+      credit: Math.round(rawCreditSum * 100) / 100,
+      balanceDebit: Math.round(netDebitBalanceSum * 100) / 100,
+      balanceCredit: Math.round(netCreditBalanceSum * 100) / 100
+    };
+  }, [rows]);
+
+  // Epsilon validation checks matching financial rounding standards
+  const isEquationBalanced =
+    Math.abs(totals.debit - totals.credit) < 0.02 &&
+    Math.abs(totals.balanceDebit - totals.balanceCredit) < 0.02;
 
   return (
     <div className="accounting-container">
       <div className="parchment-card">
         <AccountingMenu />
-        <h1 className="accounting-title">Trial Balance</h1>
+        
+        <h1 className="accounting-title">General Trial Balance</h1>
         <p className="accounting-subtitle">
-          Summary of all ledger accounts with debit, credit, and balance columns.
+          Summary compilation of all general ledger activity mapping mathematical balance matching verification points.
         </p>
 
         <hr className="divider" />
 
-        {/* Department Filter */}
+        {/* Dynamic Accounting Context Warning Callout */}
+        {selectedDepartment !== "All" && (
+          <div style={{ padding: "0.75rem", background: "#fff5f5", border: "1px solid #c27a7a", borderRadius: "4px", marginBottom: "1rem", fontSize: "0.85rem", color: "#7a1f1f" }}>
+            <strong>Departmental Context Alert:</strong> Running a trial balance across a subset filter can present matching variances. Central accounts (like liquid banking assets or tax adjustments) operate business-wide and won't offset cleanly out of context.
+          </div>
+        )}
+
+        {/* Department Filter Navigation Dock */}
         <div style={{ marginBottom: "1.5rem" }}>
-          <label
-            htmlFor="dept-filter"
-            style={{
-              fontWeight: "bold",
-              marginRight: "0.5rem",
-              display: "inline-block"
-            }}
-          >
-            Filter by Department:
+          <label htmlFor="dept-filter" style={{ fontWeight: "bold", marginRight: "0.5rem" }}>
+            Filter Verification View by Segment:
           </label>
           <select
             id="dept-filter"
             value={selectedDepartment}
             onChange={(e) => setSelectedDepartment(e.target.value)}
-            style={{
-              padding: "0.4rem 0.8rem",
-              borderRadius: "4px",
-              border: "1px solid #9b8b6f",
-              backgroundColor: "#fff",
-              cursor: "pointer",
-              fontFamily: "inherit"
-            }}
+            disabled={loading}
+            style={{ padding: "0.4rem 0.8rem", borderRadius: "4px", border: "1px solid #c8b79a", fontFamily: "inherit" }}
           >
             {departments.map((dept) => (
-              <option key={dept} value={dept}>
-                {dept}
-              </option>
+              <option key={dept} value={dept}>{dept}</option>
             ))}
           </select>
         </div>
 
-        {/* Trial Balance Table */}
-        <table className="ledger-table">
-          <thead>
-            <tr>
-              <th>Code</th>
-              <th>Account</th>
-              <th>Type</th>
-              <th>Debit</th>
-              <th>Credit</th>
-              <th>Balance</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {rows.length === 0 && (
+        {/* Main Records Presentation Grid */}
+        {loading ? (
+          <div style={{ padding: "3rem", textAlign: "center", color: "#6b5c4a" }}>Compiling account metrics...</div>
+        ) : (
+          <table className="ledger-table">
+            <thead>
               <tr>
-                <td colSpan={6}>
-                  No postings
-                  {selectedDepartment !== "All"
-                    ? ` in ${selectedDepartment} department`
-                    : ""}{" "}
-                  yet.
-                </td>
+                <th style={{ width: "12%" }}>Account Code</th>
+                <th style={{ width: "38%" }}>Ledger Account Title</th>
+                <th style={{ width: "15%" }}>Classification Type</th>
+                <th style={{ width: "11%", textAlign: "right" }}>Cumulative Debits</th>
+                <th style={{ width: "11%", textAlign: "right" }}>Cumulative Credits</th>
+                <th style={{ width: "13%", textAlign: "right" }}>Net Status Balance</th>
               </tr>
+            </thead>
+
+            <tbody>
+              {rows.length === 0 ? (
+                <tr><td colSpan={6} style={{ color: "#6b5c4a", fontStyle: "italic", textAlign: "center", padding: "1.5rem" }}>No structural posting records found.</td></tr>
+              ) : (
+                rows.map((row) => (
+                  <tr key={row.accountId}>
+                    <td><strong>{row.code}</strong></td>
+                    <td>{row.name}</td>
+                    <td>
+                      <span className={`badge-type ${row.type.toLowerCase()}`}>
+                        {row.type}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: "right" }}>{row.debit ? `£${row.debit.toFixed(2)}` : "—"}</td>
+                    <td style={{ textAlign: "right" }}>{row.credit ? `£${row.credit.toFixed(2)}` : "—"}</td>
+                    <td style={{ 
+                      textAlign: "right", 
+                      fontWeight: "bold", 
+                      color: row.balance > 0 ? "#2c3e50" : row.balance < 0 ? "#7a1f1f" : "inherit" 
+                    }}>
+                      {row.balance !== 0 
+                        ? `£${Math.abs(row.balance).toFixed(2)} ${row.balance > 0 ? "Dr" : "Cr"}`
+                        : "£0.00"
+                      }
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+
+            {rows.length > 0 && (
+              <tfoot>
+                <tr style={{ background: "#e9ddc7", fontWeight: "bold" }}>
+                  <th colSpan={3}>Aggregated Statement Totals</th>
+                  <th style={{ textAlign: "right" }}>£{totals.debit.toFixed(2)}</th>
+                  <th style={{ textAlign: "right" }}>£{totals.credit.toFixed(2)}</th>
+                  <th style={{ textAlign: "right", fontSize: "0.85rem", whiteSpace: "nowrap" }}>
+                    Dr £{totals.balanceDebit.toFixed(2)} / Cr £{totals.balanceCredit.toFixed(2)}
+                  </th>
+                </tr>
+              </tfoot>
             )}
+          </table>
+        )}
 
-            {rows.map((row) => (
-              <tr key={row.accountId}>
-                <td style={{ fontWeight: "bold" }}>{row.code}</td>
-                <td>{row.name}</td>
-                <td style={{ fontSize: "0.85rem", color: "#555" }}>
-                  {row.type}
-                </td>
-                <td style={{ textAlign: "right" }}>
-                  {row.debit ? `£${row.debit.toFixed(2)}` : ""}
-                </td>
-                <td style={{ textAlign: "right" }}>
-                  {row.credit ? `£${row.credit.toFixed(2)}` : ""}
-                </td>
-                <td
-                  style={{
-                    textAlign: "right",
-                    fontWeight: "bold",
-                    color: row.balance > 0 ? "#2c3e50" : "#c0504d"
-                  }}
-                >
-                  {row.balance
-                    ? `£${Math.abs(row.balance).toFixed(2)} ${row.balance > 0 ? "Dr" : "Cr"}`
-                    : ""}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-
-          <tfoot>
-            <tr style={{ fontWeight: "bold", background: "#e8dcc8" }}>
-              <th colSpan={3}>Totals</th>
-              <th style={{ textAlign: "right" }}>£{totals.debit.toFixed(2)}</th>
-              <th style={{ textAlign: "right" }}>
-                £{totals.credit.toFixed(2)}
-              </th>
-              <th style={{ textAlign: "right" }}>
-                Balance: £{totals.balanceDebit.toFixed(2)} Dr / £
-                {totals.balanceCredit.toFixed(2)} Cr
-              </th>
-            </tr>
-          </tfoot>
-        </table>
-
-        {/* Validation Messages */}
-        <div style={{ marginTop: "1.5rem" }}>
-          {balanced ? (
-            <div
-              style={{
-                padding: "0.75rem",
-                background: "#d4edda",
-                color: "#155724",
-                borderRadius: "4px",
-                border: "1px solid #c3e6cb"
-              }}
-            >
-              ✓ Trial balance is in balance. Debits (£{totals.debit.toFixed(2)}) = Credits (£{totals.credit.toFixed(2)})
-            </div>
-          ) : (
-            <div
-              style={{
-                padding: "0.75rem",
-                background: "#f8d7da",
-                color: "#721c24",
-                borderRadius: "4px",
-                border: "1px solid #f5c6cb"
-              }}
-            >
-              ✗ Trial balance does not agree. Debits (£{totals.debit.toFixed(2)}) ≠ Credits (£{totals.credit.toFixed(2)})
-            </div>
-          )}
-        </div>
+        {/* Integrated Status Engine Notification Panel */}
+        {!loading && rows.length > 0 && (
+          <div style={{ marginTop: "1.5rem" }}>
+            {isEquationBalanced ? (
+              <div style={{ padding: "0.85rem", background: "#edf7ed", color: "#1e4620", borderRadius: "4px", border: "1px solid #c3e6cb", fontWeight: "bold" }}>
+                ✓ General ledger integrity verified. Total debits perfectly offset corresponding credit parameters.
+              </div>
+            ) : (
+              <div style={{ padding: "0.85rem", background: "#fff5f5", color: "#7a1f1f", borderRadius: "4px", border: "1px solid #c27a7a", fontWeight: "bold" }}>
+                ✗ Bookkeeping Equation Alert: Trial balance values fail zero-variance validation checks. Review active adjustments.
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

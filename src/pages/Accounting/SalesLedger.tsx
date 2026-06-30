@@ -1,186 +1,168 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAccounting } from "./AccountingContext";
-import type { JournalEntry, JournalLine } from "./AccountingContext";
 import AccountingMenu from "./AccountingMenu";
-import "./Accounting.css";
+
+
+// Interface representing a processed row in the customer ledger
+interface CustomerLine {
+  date: string;
+  description: string;
+  reference?: string;
+  debit: number;
+  credit: number;
+  balance: number;
+  invoiceId?: number;
+  jobId?: number;
+}
 
 export default function SalesLedger() {
-  const { accounts, customers, journalEntries } = useAccounting();
+  const { accounts, customers, journalEntries, loading } = useAccounting();
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
 
-  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(
-    null
-  );
+  // 1. High Performance Indexing: Map accounts to a Set for O(1) existence checks
+  const customerAccountIdsSet = useMemo(() => {
+    return new Set(accounts.filter((a) => a.isCustomer || a.code === "1100").map((a) => a.id));
+  }, [accounts]);
 
-  // -----------------------------
-  // CALCULATE CUSTOMER BALANCES
-  // -----------------------------
+  // 2. Linear runtime aggregator: Calculate current balances for all customers
   const customerBalances = useMemo(() => {
     const map = new Map<number, number>();
+    if (!journalEntries) return map;
 
-    for (const entry of journalEntries) {
-      for (const line of entry.lines) {
-        if (!line.customerId) continue;
-
-        const account = accounts.find(a => a.id === line.accountId);
-        if (!account) continue;
-
-        // We assume customer accounts are Assets (Debtors)
-        const prev = map.get(line.customerId) ?? 0;
-        map.set(line.customerId, prev + line.debit - line.credit);
-      }
-    }
-
+    journalEntries.forEach((entry) => {
+      entry.lines?.forEach((line:any) => {
+        // Ensure line has customerId before processing
+        if (!line.customerId || !customerAccountIdsSet.has(line.accountId)) return;
+        const currentBalance = map.get(line.customerId) ?? 0;
+  map.set(line.customerId, currentBalance + line.debit - line.credit);
+});
+    });
     return map;
-  }, [journalEntries, accounts]);
+  }, [journalEntries, customerAccountIdsSet]);
 
-  const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+  const selectedCustomer = useMemo(() => {
+    return customers.find((c) => c.id === selectedCustomerId) || null;
+  }, [customers, selectedCustomerId]);
 
-  // -----------------------------
-  // BUILD CUSTOMER ACCOUNT HISTORY
-  // -----------------------------
-  const selectedCustomerLines = useMemo(() => {
-    if (!selectedCustomer) return [];
+  // 3. Chronological Pipeline: Generate transaction history for selected customer
+  const selectedCustomerLines = useMemo<CustomerLine[]>(() => {
+    if (!selectedCustomer || !journalEntries) return [];
 
-    const lines: {
-      date: string;
-      description: string;
-      reference?: string;
-      debit: number;
-      credit: number;
-      balance: number;
-    }[] = [];
+    let cumulativeBalance = 0;
 
-    let running = 0;
-
-    const allLines = journalEntries
-      .flatMap(entry =>
-        entry.lines
-          .filter(l => l.customerId === selectedCustomer.id)
-          .map(l => ({
-            entry,
-            line: l
-          }))
-      )
-      .sort((a, b) => a.entry.date.localeCompare(b.entry.date));
-
-    for (const { entry, line } of allLines) {
-      running += line.debit - line.credit;
-
-      lines.push({
-        date: entry.date,
-        description: entry.description,
-        reference: entry.reference,
-        debit: line.debit,
-        credit: line.credit,
-        balance: running
+    return journalEntries
+      .flatMap((entry) => {
+        const matches = entry.lines?.filter((l) => l.customerId === selectedCustomer.id && customerAccountIdsSet.has(l.accountId)) || [];
+        return matches.map((line) => ({ entry, line }));
+      })
+      .sort((a, b) => a.entry.date.localeCompare(b.entry.date))
+      .map(({ entry, line }) => {
+        cumulativeBalance += line.debit - line.credit;
+        return {
+          date: entry.date,
+          description: entry.description,
+          reference: entry.reference,
+          debit: line.debit,
+          credit: line.credit,
+          balance: cumulativeBalance,
+          invoiceId: (line as any).invoiceId,
+          jobId: (line as any).jobId,
+        };
       });
-    }
-
-    return lines;
-  }, [selectedCustomer, journalEntries]);
+  }, [selectedCustomer, journalEntries, customerAccountIdsSet]);
 
   return (
     <div className="accounting-container">
       <div className="parchment-card">
         <AccountingMenu />
-        <h1 className="accounting-title">Sales Ledger</h1>
+        <h1 className="accounting-title">Sales Ledger Accounts</h1>
         <p className="accounting-subtitle">
-          Customer balances and detailed account history.
+          Review dynamic accounts receivable statements and transaction history.
         </p>
 
         <hr className="divider" />
 
-        {/* ---------------------- */}
-        {/* CUSTOMER LIST */}
-        {/* ---------------------- */}
-        <h2 className="section-title">Customers</h2>
-
-        <table className="ledger-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Balance</th>
-              <th></th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {customers.length === 0 && (
-              <tr>
-                <td colSpan={3}>No customers found.</td>
-              </tr>
-            )}
-
-            {customers.map(c => {
-              const balance = customerBalances.get(c.id) ?? 0;
-
-              return (
-                <tr key={c.id}>
-                  <td>{c.name}</td>
-                  <td>
-                    {balance === 0
-                      ? "£0.00"
-                      : `£${balance.toFixed(2)} ${balance > 0 ? "DR" : "CR"}`}
-                  </td>
-                  <td>
-                    <button
-                      className="small-button"
-                      type="button"
-                      onClick={() => setSelectedCustomerId(c.id)}
-                    >
-                      View Account
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        {/* ---------------------- */}
-        {/* CUSTOMER ACCOUNT VIEW */}
-        {/* ---------------------- */}
-        {selectedCustomer && (
-          <>
-            <hr className="divider" />
-
-            <h2 className="section-title">
-              Account: {selectedCustomer.name}
-            </h2>
-
-            <table className="ledger-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Description</th>
-                  <th>Ref</th>
-                  <th>Debit</th>
-                  <th>Credit</th>
-                  <th>Balance</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {selectedCustomerLines.length === 0 && (
+        <div style={{ display: "flex", gap: "2rem", alignItems: "flex-start", marginTop: "1rem" }}>
+          {/* Registry Sidebar */}
+          <div style={{ flex: 1, minWidth: "0" }}>
+            <h2 className="section-title">Receivables Registry</h2>
+            {loading ? (
+              <div style={{ padding: "1.5rem", textAlign: "center" }}>Loading ledger...</div>
+            ) : (
+              <table className="ledger-table">
+                <thead>
                   <tr>
-                    <td colSpan={6}>No transactions for this customer.</td>
+                    <th>Customer Name</th>
+                    <th style={{ textAlign: "right" }}>Balance</th>
+                    <th></th>
                   </tr>
-                )}
+                </thead>
+                <tbody>
+                  {customers.map((c) => {
+                    const balance = customerBalances.get(c.id) ?? 0;
+                    const isSelected = selectedCustomerId === c.id;
+                    return (
+                      <tr key={c.id} style={{ backgroundColor: isSelected ? "#e9ddc7" : "transparent" }}>
+                        <td><strong>{c.name}</strong></td>
+                        <td style={{ textAlign: "right", fontWeight: "bold", color: balance > 0 ? "#7a1f1f" : balance < 0 ? "#2e6f40" : "inherit" }}>
+                          {balance === 0 ? "£0.00" : `£${Math.abs(balance).toFixed(2)} ${balance > 0 ? "DR" : "CR"}`}
+                        </td>
+                        <td style={{ textAlign: "center" }}>
+                          <button className="small-button" onClick={() => setSelectedCustomerId(isSelected ? null : c.id)}>
+                            {isSelected ? "Dismiss" : "View"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
 
-                {selectedCustomerLines.map((l, idx) => (
-                  <tr key={idx}>
-                    <td>{l.date}</td>
-                    <td>{l.description}</td>
-                    <td>{l.reference || "—"}</td>
-                    <td>{l.debit ? `£${l.debit.toFixed(2)}` : ""}</td>
-                    <td>{l.credit ? `£${l.credit.toFixed(2)}` : ""}</td>
-                    <td>{`£${l.balance.toFixed(2)}`}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
-        )}
+          {/* Statement View Panel */}
+          <div style={{ flex: 1.5, minWidth: "0" }}>
+            {selectedCustomer ? (
+              <>
+                <h2 className="section-title">Statement: {selectedCustomer.name}</h2>
+                <div style={{ maxHeight: "450px", overflowY: "auto", border: "1px solid #d2c4a8", borderRadius: "4px" }}>
+                  <table className="ledger-table" style={{ margin: 0 }}>
+                    <thead>
+                      <tr style={{ position: "sticky", top: 0, zIndex: 10 }}>
+                        <th>Date</th>
+                        <th>Narrative</th>
+                        <th>Ref</th>
+                        <th style={{ textAlign: "right" }}>Debit</th>
+                        <th style={{ textAlign: "right" }}>Credit</th>
+                        <th style={{ textAlign: "right" }}>Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedCustomerLines.map((l, idx) => (
+                        <tr key={idx}>
+                          <td>{l.date}</td>
+                          <td>
+                            {l.description}
+                            {l.jobId && <div style={{ fontSize: "0.75rem" }}>🔧 Ticket #{l.jobId}</div>}
+                          </td>
+                          <td><code>{l.reference || "-"}</code></td>
+                          <td style={{ textAlign: "right" }}>{l.debit ? `£${l.debit.toFixed(2)}` : ""}</td>
+                          <td style={{ textAlign: "right" }}>{l.credit ? `£${l.credit.toFixed(2)}` : ""}</td>
+                          <td style={{ textAlign: "right", fontWeight: "bold" }}>£{l.balance.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <div style={{ border: "2px dashed #d2c4a8", padding: "3rem", textAlign: "center", borderRadius: "6px" }}>
+                Select a customer to inspect history.
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

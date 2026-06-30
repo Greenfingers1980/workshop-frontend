@@ -1,27 +1,28 @@
-import { createBrowserRouter } from "react-router-dom";
+// src/router.tsx
+import { createBrowserRouter, useParams, useNavigate } from "react-router-dom";
 import App from "./App";
-/* Error Page */
 import NotFound from "./pages/NotFound";
 
-/* Dashboard */
+/* Dashboard & Root Layouts */
 import Dashboard from "./pages/Dashboard/Dashboard";
 
-/* Jobs */
+/* Jobs Management Module */
 import Jobs from "./pages/Jobs/Jobs";
 import NewJob from "./pages/Jobs/NewJob";
 import ViewJob from "./pages/Jobs/ViewJob";
 
-/* Technician */
+/* Technician Workspace Module */
 import TechnicianLayout from "./pages/Technician/TechnicianLayout";
 import TechnicianDashboard from "./pages/Technician/TechnicianDashboard";
 import { TechnicianMyJobs } from "./pages/Technician/TechnicianMyJobs";
 import TechnicianJobView from "./pages/Technician/TechnicianJobView";
+import Workbench from "./pages/Technician/Workbench";
 
-/* Accounting */
+/* Accounting Module Components */
 import Customers from "./pages/Accounting/Customers";
 import CustomerView from "./pages/Accounting/CustomerView";
 import SalesLedger from "./pages/Accounting/SalesLedger";
-import NewSalesInvoice from "./pages/Accounting/NewSalesInvoice";
+import { NewSalesInvoice } from "./pages/Accounting/NewSalesInvoice";
 import NewSalesReceipt from "./pages/Accounting/NewSalesReceipt";
 import ChartOfAccounts from "./pages/Accounting/ChartOfAccounts";
 import Journal from "./pages/Accounting/Journal";
@@ -38,71 +39,89 @@ import TrialBalance from "./pages/Accounting/TrialBalance";
 import AgedDebtors from "./pages/Accounting/AgedDebtors";
 import YearEnd from "./pages/Accounting/YearEnd";
 
-/* Bank */
+/* Banking Interfacing Components */
 import BankImport from "./pages/Accounting/BankImport";
 import BankReconcile from "./pages/Accounting/BankReconcile";
 
-/* Stock */
-import StockDashboard from "./pages/StockDashboard";
-import StockAdjust from "./pages/StockAdjust";
-import StockHistory from "./pages/StockHistory";
-import StockList from "./pages/StockList";
-import StockItemEditor from "./pages/StockItemEditor";
-import DataTools from "./pages/Settings/data-tools";
+/* Inventory Control Components */
+import StockDashboard from "./pages/Stock/StockDashboard";
+import StockAdjust from "./pages/Stock/StockAdjust";
+import StockHistory from "./pages/Stock/StockHistory";
+import StockList from "./pages/Stock/StockList";
+import StockItemEditor from "./pages/Stock/StockItemEditor";
 
-/* Tools */
+/* Settings & Configurations */
+import DataTools from "./pages/Settings/data-tools"; // Corrected Import
 import Tools from "./pages/Tools/Tools";
-
-/* Admin */
 import UploadPDF from "./pages/Admin/UploadPDF";
-
-/* Auth */
 import Login from "./pages/Login";
 
+const PlaceholderView = ({ title }: { title: string }) => (
+  <div className="p-6 bg-slate-950 text-slate-400 text-xs font-mono">
+    [Registry Node: {title} - View Under Construction]
+  </div>
+);
 
+/* Wrappers to resolve TypeScript prop requirements */
 
-/* Wrapper for Stock Item Editor */
-import { useParams, useNavigate } from "react-router-dom";
-
-function StockItemEditorWrapper() {
-  const { id } = useParams();
+function StockListWrapper() {
   const navigate = useNavigate();
-
   return (
-    <StockItemEditor
-      itemId={id ? Number(id) : undefined}
-      onClose={() => navigate("/stock/list")}
+    <StockList 
+      onAddTrigger={() => navigate("/stock/item/new")}
+      onEditTrigger={(id) => navigate(`/stock/item/${id}`)}
+      onAdjustTrigger={() => navigate("/stock/adjust")}
+      onHistoryTrigger={() => navigate("/stock/history")}
     />
   );
 }
 
-/* ✅ Main router configuration */
+function StockAdjustWrapper() {
+  const navigate = useNavigate();
+  return (
+    <StockAdjust 
+      itemId={0} 
+      onClose={() => navigate("/stock")} 
+    />
+  );
+}
+
+function StockItemEditorWrapper() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  return (
+    <StockItemEditor
+      itemId={id && id !== "new" ? Number(id) : undefined}
+      onClose={() => navigate("/stock")}
+    />
+  );
+}
+
 export const router = createBrowserRouter([
   {
     path: "/",
     element: <App />,
-    errorElement: <NotFound />, // custom error page
+    errorElement: <NotFound />,
     children: [
       { index: true, element: <Dashboard /> },
-
-      /* Jobs */
       { path: "jobs", element: <Jobs /> },
       { path: "jobs/new", element: <NewJob /> },
       { path: "jobs/:id", element: <ViewJob /> },
-
-      /* Technician */
       {
         path: "technician",
         element: <TechnicianLayout />,
         children: [
           { index: true, element: <TechnicianDashboard /> },
-          { path: "jobs", element: <TechnicianMyJobs /> }, // ✅ matches sidebar link
+          { path: "Workbench", element: <Workbench /> },
+          { path: "jobs", element: <TechnicianMyJobs /> },
           { path: "job/:id", element: <TechnicianJobView /> },
+          { path: "learning/courses", element: <PlaceholderView title="Courses Matrix" /> },
+          { path: "learning/schedule", element: <PlaceholderView title="Study Metrics Scheduler" /> },
+          { path: "learning/progress", element: <PlaceholderView title="Technician Progress Ledger" /> },
+           { path: "login", element: <Login /> },
           { path: "tools", element: <Tools /> },
         ],
       },
-
-      /* Accounting */
       { path: "accounting/customers", element: <Customers /> },
       { path: "accounting/customers/:id", element: <CustomerView /> },
       { path: "accounting/sales-ledger", element: <SalesLedger /> },
@@ -124,27 +143,15 @@ export const router = createBrowserRouter([
       { path: "accounting/bank/reconcile/:id", element: <BankReconcile /> },
       { path: "accounting/trial-balance", element: <TrialBalance /> },
       { path: "accounting/year-end", element: <YearEnd /> },
-
-      /* Stock */
-      { path: "stock", element: <StockDashboard /> },
-      { path: "stock/adjust", element: <StockAdjust /> },
+      { path: "stock", element: <StockListWrapper /> },
+      { path: "stock/dashboard", element: <StockDashboard /> },
+      { path: "stock/adjust", element: <StockAdjustWrapper /> },
       { path: "stock/history", element: <StockHistory /> },
-      { path: "stock/list", element: <StockList /> },
       { path: "stock/item/:id", element: <StockItemEditorWrapper /> },
-
-      /* Tools */
       { path: "tools", element: <Tools /> },
-
-      /* Settings */
       { path: "settings/data-tools", element: <DataTools /> },
-
-      /* Admin */
       { path: "admin/upload-pdf", element: <UploadPDF /> },
-
-      /* Auth */
-      { path: "login", element: <Login /> },
-
-      /* Catch-all */
+     
       { path: "*", element: <NotFound /> },
     ],
   },

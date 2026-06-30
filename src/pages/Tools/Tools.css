@@ -1,350 +1,48 @@
-.tools-container {
-  display: flex;
-  justify-content: center;
-  padding: 2rem;
-}
-
-.parchment-card {
-  background: #f7f1e3;
-  border: 1px solid #d2c4a8;
-  padding: 2rem;
-  width: 1000px;
-  border-radius: 10px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-  font-family: "Georgia", serif;
-}
-
-.tools-title {
-  margin-top: 0;
-  font-size: 2rem;
-  color: #4a3f35;
-}
-
-.tools-subtitle {
-  margin-top: -0.5rem;
-  color: #6b5c4a;
-}
-
-.divider {
-  margin: 1.5rem 0;
-  border: none;
-  border-top: 1px solid #c8b79a;
-}
-
-.section-title {
-  margin-bottom: 0.5rem;
-  color: #4a3f35;
-}
-
-/* Tabs */
-
-.tabs-row {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.tab-button {
-  padding: 0.4rem 0.9rem;
-  border-radius: 999px;
-  border: 1px solid #c8b79a;
-  background: #f7f1e3;
-  cursor: pointer;
-  font-family: "Georgia", serif;
-  font-size: 0.9rem;
-  color: #4a3f35;
-}
-
-.tab-button.active {
-  background: #e3d4b8;
-  border-color: #b9a88a;
-}
-
-/* Filters */
-
-.filters-row {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.search-input {
-  flex: 1;
-  padding: 0.4rem 0.6rem;
-  border-radius: 4px;
-  border: 1px solid #c8b79a;
-  font-family: "Georgia", serif;
-}
-
-.select-input {
-  padding: 0.4rem 0.6rem;
-  border-radius: 4px;
-  border: 1px solid #c8b79a;
-  font-family: "Georgia", serif;
-}
-
-/* Reminders */
-
-.reminders-panel {
-  background: #f0e4c9;
-  border: 1px solid #d2c4a8;
-  padding: 0.8rem 1rem;
-  border-radius: 6px;
-  margin-bottom: 1rem;
-}
-
-.reminders-list {
-  list-style: none;
-  padding: 0;
-  margin: 0.3rem 0 0 0;
-}
-
-/* Tools list */
-
-.tools-list {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 1.5rem 0;
-}
-
-.tool-item {
-  padding: 0.7rem 0;
-  border-bottom: 1px solid #e0d4bc;
-  display: grid;
-  grid-template-columns: 3fr 3fr auto;
-  gap: 0.75rem;
-  align-items: flex-start;
-}
-
-.tool-main {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
-.tool-name {
-  color: #4a3f35;
-  font-weight: bold;
-}
-
-.tool-id {
-  font-weight: normal;
-  color: #6b5c4a;
-  font-size: 0.9rem;
-}
-
-.tool-department,
-.tool-location,
-.tool-type,
-.tool-cost {
-  color: #6b5c4a;
-  font-size: 0.9rem;
-}
-
-.tool-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.tool-notes {
-  font-size: 0.85rem;
-  color: #6b5c4a;
-  font-style: italic;
-}
-
-.tool-actions {
-  display: flex;
-  gap: 0.4rem;
-  justify-content: flex-end;
-}
-
-.tool-empty {
-  padding: 0.5rem 0;
-  color: #6b5c4a;
-}
-
-/* Condition badges */
-
-.condition-badge {
-  display: inline-block;
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  border: 1px solid transparent;
-}
-
-.condition-badge.excellent {
-  background: #e0f4d7;
-  border-color: #9acb7a;
-  color: #2f5b1f;
-}
-
-.condition-badge.good {
-  background: #e7f0ff;
-  border-color: #9ab4e0;
-  color: #24426b;
-}
-
-.condition-badge.service-due {
-  background: #fff4d6;
-  border-color: #e0c27a;
-  color: #7a5a1f;
-}
-
-.condition-badge.out-of-service {
-  background: #ffe0e0;
-  border-color: #d88a8a;
-  color: #7a1f1f;
-}
-
-/* Service history */
-
-.service-history {
-  border-top: 1px dashed #d2c4a8;
-  padding-top: 0.4rem;
-  margin-top: 0.2rem;
-}
-
-.service-history-header {
-  font-size: 0.85rem;
-  color: #4a3f35;
-  margin-bottom: 0.2rem;
-}
-
-.service-history-empty {
-  font-size: 0.85rem;
-  color: #6b5c4a;
-}
-
-.service-history-entry {
-  font-size: 0.85rem;
-  color: #4a3f35;
-  display: flex;
-  gap: 0.4rem;
-}
-
-.service-date {
-  font-weight: bold;
-}
-
-.service-note {
-  font-style: italic;
-}
-
-.service-history-form {
-  display: flex;
-  gap: 0.3rem;
-  margin-top: 0.3rem;
-}
-
-.service-history-form input[type="date"],
-.service-history-form input[type="text"] {
-  padding: 0.2rem 0.4rem;
-  border-radius: 4px;
-  border: 1px solid #c8b79a;
-  font-family: "Georgia", serif;
-  font-size: 0.8rem;
-}
-
-/* Buttons */
-
-.small-button {
-  padding: 0.25rem 0.6rem;
-  border-radius: 4px;
-  border: 1px solid #c8b79a;
-  background: #f7f1e3;
-  cursor: pointer;
-  font-family: "Georgia", serif;
-  font-size: 0.8rem;
-  color: #4a3f35;
-}
-
-.small-button.danger {
-  border-color: #c27a7a;
-  color: #7a1f1f;
-}
-
-/* Form */
-
-.tool-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-}
-
+/* Container for the input row - ensures horizontal alignment and equal spacing */
 .form-row {
   display: flex;
+  flex-direction: row;
   gap: 1rem;
+  align-items: stretch; /* Forces elements to match heights */
+  margin-bottom: 1rem;
 }
 
-.form-row label {
-  flex: 1;
-  font-size: 0.9rem;
-  color: #4a3f35;
+/* Unify inputs and textareas to share identical styling */
+.form-field {
+  flex: 1; /* Makes all fields share width equally */
+  padding: 0.5rem;
+  background: #0f172a; /* Slate 900 */
+  border: 1px solid #1e293b; /* Slate 800 */
+  color: #f8fafc;
+  border-radius: 0.5rem;
+  font-family: inherit;
 }
 
-.form-row input,
-.form-row select,
-.notes-label textarea {
-  width: 100%;
-  margin-top: 0.2rem;
-  padding: 0.35rem 0.5rem;
-  border-radius: 4px;
-  border: 1px solid #c8b79a;
-  font-family: "Georgia", serif;
-  font-size: 0.9rem;
+/* Force textarea to behave like a standard input field */
+textarea.form-field {
+  min-height: 40px;
+  resize: vertical; /* Allows user to drag to expand */
 }
 
-.notes-label {
-  flex: 1;
-  font-size: 0.9rem;
-  color: #4a3f35;
+/* Existing Dashboard Styles */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 1.25rem;
+  margin: 1.5rem 0;
 }
 
-.form-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.3rem;
+.dash-card {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  padding: 1.25rem 1rem;
+  border-radius: 0.75rem;
+  text-align: center;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
+  transition: border-color 0.2s ease, transform 0.2s ease;
 }
 
-.ledger-button.secondary {
-  background: #ece2cf;
-}
-
-/* Tool types */
-
-.tool-types-row {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.tool-types-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.tool-type-pill {
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  border: 1px solid #c8b79a;
-  background: #f7f1e3;
-  font-size: 0.85rem;
-  color: #4a3f35;
-}
-
-.tool-types-add {
-  display: flex;
-  gap: 0.4rem;
-}
-
-.tool-types-add input {
-  flex: 1;
-  padding: 0.3rem 0.5rem;
-  border-radius: 4px;
-  border: 1px solid #c8b79a;
-  font-family: "Georgia", serif;
-  font-size: 0.9rem;
+.dash-card:hover {
+  border-color: #334155;
+  transform: translateY(-1px);
 }

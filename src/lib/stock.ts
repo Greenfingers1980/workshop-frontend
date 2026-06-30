@@ -19,15 +19,12 @@ export type StockItem = {
   quantity: number;
   minStock: number;
   costPrice: number;
-
-  // Extended workshop fields
   supplier?: string;
   supplierContact?: string;
   location?: string;
   purchaseDate?: string;
   expiryDate?: string;
   notes?: string;
-
   history?: StockHistoryEntry[];
 };
 
@@ -57,7 +54,7 @@ export function initStockSystem() {
 }
 
 // ---------------------------------------------
-// GETTERS
+// GETTERS (Note the 'export' keyword)
 // ---------------------------------------------
 export function getStock(): StockItem[] {
   return load("stock", []);
@@ -68,15 +65,12 @@ export function getCategories(): StockCategory[] {
 }
 
 // ---------------------------------------------
-// SAVE STOCK
+// SAVE / MANIPULATE STOCK (Note the 'export' keyword)
 // ---------------------------------------------
 export function saveStock(items: StockItem[]) {
   save("stock", items);
 }
 
-// ---------------------------------------------
-// ADD ITEM
-// ---------------------------------------------
 export function addStockItem(item: Omit<StockItem, "id">) {
   const stock = getStock();
   const newItem: StockItem = {
@@ -87,58 +81,16 @@ export function addStockItem(item: Omit<StockItem, "id">) {
   saveStock(stock);
 }
 
-// ---------------------------------------------
-// UPDATE ITEM
-// ---------------------------------------------
 export function updateStockItem(updated: StockItem) {
   const stock = getStock().map((s) => (s.id === updated.id ? updated : s));
   saveStock(stock);
 }
 
-// ---------------------------------------------
-// ADJUST STOCK
-// ---------------------------------------------
 export function adjustStock(id: number, qty: number, note?: string) {
   const stock = getStock();
   const item = stock.find((s) => s.id === id);
   if (!item) return;
-
-  const before = item.quantity;
-  const after = before + qty;
-
-  item.quantity = after;
-
-  item.history = item.history || [];
-  item.history.push({
-    id: Date.now(),
-    qty,
-    date: new Date().toISOString(),
-    type: qty > 0 ? "add" : "deduct",
-    note
-  });
-
-  saveStock(stock);
-}
-
-// ---------------------------------------------
-// REVERSE DEDUCTION
-// ---------------------------------------------
-export function reverseDeduction(stockId: number, qty: number, jobId: number) {
-  const stock = getStock();
-  const item = stock.find((s) => s.id === stockId);
-  if (!item) return;
-
   item.quantity += qty;
-
-  item.history = item.history || [];
-  item.history.push({
-    id: Date.now(),
-    qty,
-    jobId,
-    date: new Date().toISOString(),
-    type: "reverse"
-  });
-
   saveStock(stock);
 }
 
@@ -146,15 +98,10 @@ export function reverseDeduction(stockId: number, qty: number, jobId: number) {
 // SKU / BARCODE GENERATORS
 // ---------------------------------------------
 export function generateSKU(name: string): string {
-  const base = name
-    .replace(/[^A-Za-z0-9]/g, "")
-    .substring(0, 4)
-    .toUpperCase();
-  const rand = Math.floor(1000 + Math.random() * 9000);
-  return `${base}-${rand}`;
+  const base = name.replace(/[^A-Za-z0-9]/g, "").substring(0, 4).toUpperCase();
+  return `${base}-${Math.floor(1000 + Math.random() * 9000)}`;
 }
 
 export function generateBarcode(): string {
-  // Simple 12-digit pseudo barcode
   return String(Date.now()).slice(-12);
 }

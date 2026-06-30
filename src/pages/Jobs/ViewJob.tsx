@@ -1,1110 +1,364 @@
-import React, { useEffect, useState, useRef } from "react";
+// src/pages/Jobs/ViewJob.tsx
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
-import { getStock, reverseDeduction, adjustStock } from "../../lib/stock";
-import type { StockItem } from "../../lib/stock";
-import { useAccounting } from "../Accounting/AccountingContext";
+import { useAccounting } from "../Accounting/AccountingContext"; 
+import { useJobs } from "../../hooks/useJobs";
 
 
-type Job = {
-  id: number;
+interface PartUsed {
+  name: string;
+  qty: number;
+  costPrice?: number;
+  stockId?: string | number;
+}
 
-  customerId?: number | null;   // ⭐ ADD THIS
+interface TimeSpent {
+  minutes: number;
+  note: string;
+}
 
+interface Job {
+  id: number | string;
+  customerId?: number | null;
   customerPhone?: string;
   customerAddress?: string;
-
   clockMake?: string;
   clockModel?: string;
   clockSerial?: string;
   clockAge?: string;
-
-  status?: string;
-  salesPrice?: string;
+  status: string;
+  salesPrice?: string | number;
   paymentStatus?: "PAID" | "UNPAID";
-
-  partsUsed?: {
-    name: string;
-    qty: number;
-    costPrice?: number;
-    stockId?: number;
-  }[];
-
-  timeSpent?: {
-    minutes: number;
-    note: string;
-  }[];
-
+  partsUsed?: PartUsed[];
+  timeSpent?: TimeSpent[];
   technicianNotes?: string;
   photos?: string[];
   dropoffSignature?: string;
   collectionSignature?: string;
-};
+}
 
 export default function ViewJob() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const { postJobToLedger, customers } = useAccounting();
-
-  // Load jobs from localStorage
-  const savedJobs = localStorage.getItem("jobs");
-  const jobs: Job[] = savedJobs ? JSON.parse(savedJobs) : [];
-
-  // Find the specific job
-  const initialJob = jobs.find((j) => j.id === Number(id));
-
-  if (!initialJob) {
-    return (
-      <div style={{ padding: "1rem", fontFamily: "system-ui, sans-serif" }}>
-        Job not found.
-      </div>
-    );
-  }
-
-  // ⭐ Customer lookup MUST be here
-  const customer = customers.find(c => c.id === initialJob.customerId);
-
-  // ⭐ ALL HOOKS MUST COME AFTER THE COMPONENT STARTS
-  const [jobState, setJobState] = useState<Job>(initialJob);
-  const [partsUsed, setPartsUsed] = useState<Job["partsUsed"]>(
-    initialJob.partsUsed || []
-  );
-  const [timeSpent, setTimeSpent] = useState<Job["timeSpent"]>(
-    initialJob.timeSpent || []
-  );
-  const [photos, setPhotos] = useState<string[]>(initialJob.photos || []);
-  const [stockItems, setStockItems] = useState<StockItem[]>([]);
-  const [showStockPicker, setShowStockPicker] = useState(false);
-
-  // ⭐ Admin modal state
-  const [showAssignCustomer, setShowAssignCustomer] = useState(false);
+  const { jobs, updateJobInDatabase } = useJobs() as any; 
 
   const [isDrawing, setIsDrawing] = useState(false);
   const dropoffCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const collectionCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  // Memoize Job Retrieval to optimize render cycle calculations
+  const initialJob = useMemo<Job | null>(() => {
+    if (!id || !jobs) return null;
+    return jobs.find((j: any) => String(j.id) === String(id)) || null;
+  }, [jobs, id]);
+
+  const [jobState, setJobState] = useState<Job | null>(null);
+
+  // Sync component state with underlying database data updates
   useEffect(() => {
-    setStockItems(getStock());
-  }, []);
+    if (initialJob) {
+      setJobState(initialJob);
+    }
+  }, [initialJob]);
 
+  // Map out customer metadata properties
+  const customer = useMemo(() => {
+    if (!jobState || !customers) return null;
+    return customers.find(c => c.id === jobState.customerId) || null;
+  }, [customers, jobState?.customerId]);
 
-function generateQR(text: string, size = 120) {
-  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(
-    text
-  )}`;
-}
+  // Aggregate current replacement parts costs natively
+  const totalPartsCost = useMemo(() => {
+    if (!jobState?.partsUsed) return 0;
+    return jobState.partsUsed.reduce((sum, p) => sum + (p.costPrice ?? 0) * (p.qty ?? 0), 0);
+  }, [jobState?.partsUsed]);
 
-const qrURL = generateQR(`/jobs/${jobState.id}`, 120);
+  // Standardized dynamic target API generator for routing validation
+  const qrURL = useMemo(() => {
+    if (!jobState) return "";
+    const domainOrigin = window.location.origin;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(`${domainOrigin}/jobs/view/${jobState.id}`)}`;
+  }, [jobState?.id]);
 
-function updateJobField<K extends keyof Job>(field: K, value: Job[K]) {
-  const updatedJob = { ...jobState, [field]: value } as Job;
-  const updatedJobs = jobs.map((j) =>
-    j.id === jobState.id ? updatedJob : j
-  );
-  localStorage.setItem("jobs", JSON.stringify(updatedJobs));
-  setJobState(updatedJob);
-}
-
-function updateSalesPrice(value: string) {
-  updateJobField("salesPrice", value);
-}
-
-function updatePaymentStatus(status: "PAID" | "UNPAID") {
-  updateJobField("paymentStatus", status);
-}
-
-function updateStatus(newStatus: string) {
-  updateJobField("status", newStatus);
-}
-
-function saveParts(parts: Job["partsUsed"]) {
-  const updatedJob = { ...jobState, partsUsed: parts } as Job;
-  const updatedJobs = jobs.map((j) =>
-    j.id === jobState.id ? updatedJob : j
-  );
-  localStorage.setItem("jobs", JSON.stringify(updatedJobs));
-  setJobState(updatedJob);
-  setPartsUsed(parts);
-}
-
-function addPart() {
-  const newPart = { name: "", qty: 1, costPrice: 0 };
-  saveParts([...(partsUsed || []), newPart]);
-}
-
-function updatePart(
-  index: number,
-  field: keyof NonNullable<Job["partsUsed"]>[number],
-  value: unknown
-) {
-  const updated = [...(partsUsed || [])];
-  updated[index] = {
-    ...updated[index],
-    [field]: value,
-  } as (typeof updated)[number];
-
-  saveParts(updated);
-}
-
-function removePart(index: number) {
-  const part = partsUsed?.[index];
-  if (part?.stockId) {
-    reverseDeduction(part.stockId, part.qty, jobState.id);
-  }
-  const updated = (partsUsed || []).filter((_, i) => i !== index);
-  saveParts(updated);
-}
-
-function handleSelectStockItem(stockItem: StockItem) {
-  setShowStockPicker(false);
-
-  const qty = Number(prompt("Quantity to add?"));
-  if (!qty || qty <= 0) return;
-
-  const deduct = window.confirm(
-    `Deduct ${qty} from stock?\n\nItem: ${stockItem.name}\nCurrent Qty: ${stockItem.quantity}`
-  );
-
-  const newPart = {
-    name: stockItem.name,
-    qty,
-    costPrice: stockItem.costPrice,
-    stockId: stockItem.id,
-  };
-
-  const updated = [...(partsUsed || []), newPart];
-  saveParts(updated);
-
-  if (deduct) {
-    adjustStock(stockItem.id, -qty, `Used on job ${jobState.id}`);
-  }
-}
-
-const totalPartsCost =
-  (partsUsed || []).reduce((sum, p) => {
-    const cost = p.costPrice ?? 0;
-    const qty = p.qty ?? 0;
-    return sum + cost * qty;
-  }, 0) || 0;
-
-function saveTime(entries: NonNullable<Job["timeSpent"]>) {
-  const updatedJob = { ...jobState, timeSpent: entries } as Job;
-  const updatedJobs = jobs.map((j) =>
-    j.id === jobState.id ? updatedJob : j
-  );
-  localStorage.setItem("jobs", JSON.stringify(updatedJobs));
-  setJobState(updatedJob);
-  setTimeSpent(entries);
-}
-
-function addTimeEntry() {
-  const newEntry = { minutes: 0, note: "" };
-  saveTime([...(timeSpent || []), newEntry]);
-}
-
-function updateTimeEntry(
-  index: number,
-  field: keyof NonNullable<Job["timeSpent"]>[number],
-  value: unknown
-) {
-  const updated = [...(timeSpent || [])];
-  updated[index] = {
-    ...updated[index],
-    [field]: value,
-  } as (typeof updated)[number];
-  saveTime(updated);
-}
-
-function removeTimeEntry(index: number) {
-  const updated = (timeSpent || []).filter((_, i) => i !== index);
-  saveTime(updated);
-}
-
-function updateTechnicianNotes(notes: string) {
-  updateJobField("technicianNotes", notes);
-}
-
-function savePhotos(newPhotos: string[]) {
-  const updatedJob = { ...jobState, photos: newPhotos } as Job;
-  const updatedJobs = jobs.map((j) =>
-    j.id === jobState.id ? updatedJob : j
-  );
-  localStorage.setItem("jobs", JSON.stringify(updatedJobs));
-  setJobState(updatedJob);
-  setPhotos(newPhotos);
-}
-
-function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
-  const files = e.target.files;
-  if (!files || files.length === 0) return;
-
-  const existing = [...photos];
-  const readers: Promise<string>[] = [];
-
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    readers.push(
-      new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      })
+  if (!jobState) {
+    return (
+      <div className="accounting-container">
+        <div className="parchment-card" style={{ textAlign: "center", padding: "3rem" }}>
+          <h2>Awaiting Service Record...</h2>
+          <p style={{ margin: "1rem 0" }}>Pulling active ticket data from the database.</p>
+        </div>
+      </div>
     );
   }
 
-  Promise.all(readers).then((results) => {
-    savePhotos([...existing, ...results]);
-  });
-}
+  /**
+   * MUTATOR: Real-time update push out to backend layer
+   */
+  const handleUpdateField = async (fieldsPatch: Partial<Job>) => {
+    const freshState = { ...jobState, ...fieldsPatch };
+    setJobState(freshState); 
 
-function removePhoto(index: number) {
-  savePhotos(photos.filter((_, i) => i !== index));
-}
+    try {
+      await updateJobInDatabase(jobState.id, fieldsPatch);
+    } catch (err) {
+      console.error("Supabase synchronization exception:", err);
+    }
+  };
 
-function getCanvas(type: "dropoff" | "collection") {
-  return type === "dropoff"
-    ? dropoffCanvasRef.current
-    : collectionCanvasRef.current;
-}
+  /**
+   * CANVAS SIGNATURE UTILITY CONTROL OPERATIONS
+   */
+  const getCoordinates = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>, canvas: HTMLCanvasElement) => {
+    const rect = canvas.getBoundingClientRect();
+    if ("touches" in e) {
+      if (e.touches.length === 0) return null;
+      return {
+        x: e.touches[0].clientX - rect.left,
+        y: e.touches[0].clientY - rect.top
+      };
+    } else {
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+    }
+  };
 
-function startDraw(
-  e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
-  type: "dropoff" | "collection"
-) {
-  const canvas = getCanvas(type);
-  if (!canvas) return;
-  setIsDrawing(true);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  ctx.strokeStyle = "#000";
-  ctx.lineWidth = 2;
-  ctx.lineCap = "round";
-  const rect = canvas.getBoundingClientRect();
-  const x =
-    "touches" in e
-      ? e.touches[0].clientX - rect.left
-      : (e as React.MouseEvent<HTMLCanvasElement>).clientX - rect.left;
-  const y =
-    "touches" in e
-      ? e.touches[0].clientY - rect.top
-      : (e as React.MouseEvent<HTMLCanvasElement>).clientY - rect.top;
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-}
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>, ref: React.RefObject<HTMLCanvasElement | null>) => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    e.preventDefault();
+    setIsDrawing(true);
+    
+    const ctx = canvas.getContext("2d");
+    const coords = getCoordinates(e, canvas);
+    if (!ctx || !coords) return;
 
-function draw(
-  e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
-  type: "dropoff" | "collection"
-) {
-  if (!isDrawing) return;
-  const canvas = getCanvas(type);
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  const rect = canvas.getBoundingClientRect();
-  const x =
-    "touches" in e
-      ? e.touches[0].clientX - rect.left
-      : (e as React.MouseEvent<HTMLCanvasElement>).clientX - rect.left;
-  const y =
-    "touches" in e
-      ? e.touches[0].clientY - rect.top
-      : (e as React.MouseEvent<HTMLCanvasElement>).clientY - rect.top;
-  ctx.lineTo(x, y);
-  ctx.stroke();
-}
+    ctx.strokeStyle = "#2c3e50";
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(coords.x, coords.y);
+  };
 
-function endDraw() {
-  setIsDrawing(false);
-}
+  const drawMovementLine = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>, ref: React.RefObject<HTMLCanvasElement | null>) => {
+    if (!isDrawing) return;
+    const canvas = ref.current;
+    if (!canvas) return;
+    e.preventDefault();
 
-function saveSignature(type: "dropoff" | "collection") {
-  const canvas = getCanvas(type);
-  if (!canvas) return;
-  const data = canvas.toDataURL("image/png");
-  if (type === "dropoff") {
-    updateJobField("dropoffSignature", data);
-  } else {
-    updateJobField("collectionSignature", data);
-  }
-}
+    const ctx = canvas.getContext("2d");
+    const coords = getCoordinates(e, canvas);
+    if (!ctx || !coords) return;
 
-function clearSignature(type: "dropoff" | "collection") {
-  const canvas = getCanvas(type);
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (type === "dropoff") {
-    updateJobField("dropoffSignature", "");
-  } else {
-    updateJobField("collectionSignature", "");
-  }
-}
+    ctx.lineTo(coords.x, coords.y);
+    ctx.stroke();
+  };
 
-function printJobSheet() {
-  window.print();
-}
-
-function printReceipt() {
-  window.print();
-}
-
-function handlePostToLedger() {
-  const confirmPost = window.confirm(
-    "Post this job to the ledger? This cannot be undone."
-  );
-  if (!confirmPost) return;
-
-  postJobToLedger(jobState.id);
-  alert("Job posted to ledger.");
-}
-
+  const saveSignatureCanvas = async (type: "dropoff" | "collection", ref: React.RefObject<HTMLCanvasElement | null>) => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    
+    const signatureDataUrl = canvas.toDataURL("image/png");
+    const fieldName = type === "dropoff" ? "dropoffSignature" : "collectionSignature";
+    
+    await handleUpdateField({ [fieldName]: signatureDataUrl });
+    alert(`✓ ${type === "dropoff" ? "Intake" : "Release"} signature locked successfully.`);
+  };
 
   return (
-    <div
-      style={{
-        padding: "1.5rem",
-        fontFamily: "system-ui, sans-serif",
-        maxWidth: "900px",
-        margin: "0 auto",
-      }}
-    >
-      <div
-        className="no-print"
-        style={{
-          display: "flex",
-          gap: "0.5rem",
-          marginBottom: "1.5rem",
-          flexWrap: "wrap",
-        }}
-      >
-        <button
-          onClick={printJobSheet}
-          style={{
-            background: "#b89b5e",
-            color: "white",
-            padding: "0.6rem 1rem",
-            borderRadius: "6px",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          Print Job Sheet
-        </button>
-
-        <button
-          onClick={printReceipt}
-          style={{
-            background: "#4a6fa5",
-            color: "white",
-            padding: "0.6rem 1rem",
-            borderRadius: "6px",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          Print Customer Receipt
-        </button>
-        <button
-  onClick={() => setShowAssignCustomer(true)}
-  className="ledger-button"
-  style={{ background: "#5a4632", marginBottom: "1rem" }}
->
-  Admin: Link Customer Account
-</button>
-
-        <button
-          onClick={handlePostToLedger}
-          style={{
-            background: "#2c3e50",
-            color: "white",
-            padding: "0.6rem 1rem",
-            borderRadius: "6px",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          Post to Ledger
-        </button>
-      </div>
-
-      <h1 style={{ marginBottom: "0.5rem" }}>Job #{jobState.id}</h1>
-
-      <div
-        style={{
-          border: "1px solid #000",
-          padding: "1rem",
-          width: "260px",
-          float: "right",
-          marginLeft: "1rem",
-          textAlign: "center",
-          background: "#fafafa",
-        }}
-      >
-        <img
-          src={qrURL}
-          alt="QR Code"
-          style={{ width: "120px", height: "120px", marginBottom: "0.5rem" }}
-        />
-        <div style={{ fontSize: "0.9rem", marginBottom: "1rem" }}>
-          Scan for job details
-        </div>
-
-        <div style={{ marginBottom: "1rem" }}>
-          <strong>Sales Price (�):</strong>
-          <input
-            type="number"
-            value={jobState.salesPrice || ""}
-            onChange={(e) => updateSalesPrice(e.target.value)}
-            className="no-print"
-            style={{
-              width: "100%",
-              padding: "0.4rem",
-              marginTop: "0.3rem",
-              borderRadius: "4px",
-              border: "1px solid #ccc",
-            }}
-          />
-          <div className="print-only" style={{ display: "none" }}>
-            �{jobState.salesPrice || "0.00"}
-          </div>
-        </div>
-
-        <div>
-          <strong>Payment:</strong>
-          <div className="no-print" style={{ marginTop: "0.3rem" }}>
-            <button
-              onClick={() => updatePaymentStatus("PAID")}
-              style={{
-                background: "#2ecc71",
-                color: "white",
-                padding: "0.3rem 0.6rem",
-                border: "none",
-                borderRadius: "4px",
-                marginRight: "0.3rem",
-                cursor: "pointer",
-              }}
-            >
-              Mark Paid
-            </button>
-            <button
-              onClick={() => updatePaymentStatus("UNPAID")}
-              style={{
-                background: "#e74c3c",
-                color: "white",
-                padding: "0.3rem 0.6rem",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-              }}
-            >
-              Mark Unpaid
-            </button>
+    <div className="accounting-container">
+      <div className="parchment-card">
+        
+        {/* --- HEADER BLOCK CONTAINER --- */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <span style={{ fontSize: "0.8rem", color: "#9b8b6f", fontWeight: "bold" }}>BENCH CONTROL INTERFACE</span>
+            <h1 className="accounting-title" style={{ fontSize: "2.25rem", margin: 0 }}>Job Record #{jobState.id}</h1>
+            <p className="accounting-subtitle" style={{ marginTop: "0.2rem" }}>
+              {jobState.clockMake} — {jobState.clockModel} (Serial Link: <code>{jobState.clockSerial || "N/A"}</code>)
+            </p>
           </div>
 
-          <div
-            className="print-only"
-            style={{
-              display: "none",
-              marginTop: "0.5rem",
-              fontWeight: "bold",
-              color: jobState.paymentStatus === "PAID" ? "green" : "red",
-            }}
-          >
-            ? {jobState.paymentStatus || "UNPAID"}
-          </div>
-        </div>
-      </div>
-      <div
-  style={{
-    background: "#fffdf8",
-    border: "1px solid #d2c4a8",
-    padding: "1.2rem",
-    borderRadius: "8px",
-    marginBottom: "1.5rem",
-  }}
->
-  <h2 style={{ marginTop: 0, marginBottom: "0.5rem" }}>Customer</h2>
-
-  {!customer && (
-    <p style={{ color: "#a33" }}>
-      No customer assigned to this job.
-    </p>
-  )}
-
-  {customer && (
-    <div style={{ lineHeight: "1.6" }}>
-      <p>
-        <strong>{customer.name}</strong><br />
-        Account No: <strong>{customer.id}</strong>
-      </p>
-
-      {customer.phone && <p>📞 {customer.phone}</p>}
-      {customer.email && <p>✉️ {customer.email}</p>}
-      {customer.address && (
-        <p style={{ whiteSpace: "pre-line" }}>
-          📍 {customer.address}
-        </p>
-      )}
-    </div>
-  )}
-</div>
-
-      <h2>Status</h2>
-      <select
-        value={jobState.status || "In Progress"}
-        onChange={(e) => updateStatus(e.target.value)}
-        className="no-print"
-        style={{
-          padding: "0.5rem",
-          borderRadius: "6px",
-          border: "1px solid #ccc",
-          marginBottom: "1.5rem",
-        }}
-      >
-        <option value="In Progress">In Progress</option>
-        <option value="Awaiting Parts">Awaiting Parts</option>
-        <option value="Completed">Completed</option>
-      </select>
-
-      <h2>Customer Details</h2>
-   <p>
-        <strong>Phone:</strong> {jobState.customerPhone || ""}
-      </p>
-      <p>
-        <strong>Address:</strong> {jobState.customerAddress || ""}
-      </p>
-
-      <h2>Clock Details</h2>
-      <p>
-        <strong>Make:</strong> {jobState.clockMake || ""}
-      </p>
-      <p>
-        <strong>Model:</strong> {jobState.clockModel || ""}
-      </p>
-      <p>
-        <strong>Serial:</strong> {jobState.clockSerial || ""}
-      </p>
-      <p>
-        <strong>Age:</strong> {jobState.clockAge || ""}
-      </p>
-
-      <h2>Parts Used</h2>
-      {(partsUsed || []).map((p, i) => (
-        <div
-          key={i}
-          style={{
-            display: "flex",
-            gap: "0.5rem",
-            alignItems: "center",
-            marginBottom: "0.3rem",
-          }}
-        >
-          <input
-            type="text"
-            value={p.name}
-            onChange={(e) => updatePart(i, "name", e.target.value)}
-            placeholder="Part name"
-            style={{
-              flex: 2,
-              padding: "0.3rem",
-              borderRadius: "4px",
-              border: "1px solid #ccc",
-            }}
-          />
-          <input
-            type="number"
-            value={p.qty}
-            onChange={(e) => updatePart(i, "qty", Number(e.target.value))}
-            style={{
-              width: "60px",
-              padding: "0.3rem",
-              borderRadius: "4px",
-              border: "1px solid #ccc",
-            }}
-          />
-          <input
-            type="number"
-            value={p.costPrice ?? 0}
-            onChange={(e) => updatePart(i, "costPrice", Number(e.target.value))}
-            style={{
-              width: "80px",
-              padding: "0.3rem",
-              borderRadius: "4px",
-              border: "1px solid #ccc",
-            }}
-          />
-          <button
-            onClick={() => removePart(i)}
-            style={{
-              padding: "0.3rem 0.6rem",
-              borderRadius: "4px",
-              border: "none",
-              background: "#e74c3c",
-              color: "white",
-              cursor: "pointer",
-            }}
-          >
-            X
-          </button>
-        </div>
-      ))}
-        return (
-    <div style={{ padding: "1rem" }}>
-
-      {/* ⭐ JOB ACTIONS */}
-      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
-        <button
-          onClick={() => postJobToLedger(jobState.id)}
-          className="ledger-button"
-        >
-          Post to Ledger
-        </button>
-
-        <Link
-          to={`/accounting/sales-invoice/new/${jobState.id}`}
-          className="ledger-button"
-        >
-          Create Sales Invoice
-        </Link>
-
-        {/* ⭐ ADMIN BUTTON GOES HERE */}
-        <button
-          onClick={() => setShowAssignCustomer(true)}
-          className="ledger-button"
-          style={{ background: "#5a4632" }}
-        >
-          Admin: Link Customer
-        </button>
-      </div>
-
-      {/* ⭐ REST OF YOUR JOB UI BELOW THIS */}
-      {/* (customer panel, parts, time, photos, signatures, etc.) */}
-
-
-      {/* ⭐ ADMIN MODAL GOES AT THE BOTTOM OF RETURN */}
-      {showAssignCustomer && (
-        <div style={{
-          position: "fixed",
-          top: 0, left: 0,
-          width: "100vw",
-          height: "100vh",
-          background: "rgba(0,0,0,0.5)",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          zIndex: 9999
-        }}>
-          <div style={{
-            background: "white",
-            padding: "2rem",
-            borderRadius: "8px",
-            width: "400px"
-          }}>
-            <h2>Assign Customer</h2>
-
-            <select
-              defaultValue={initialJob.customerId || ""}
-              onChange={(e) => {
-                const newCustomerId = Number(e.target.value);
-
-                const updatedJobs = jobs.map(j =>
-                  j.id === initialJob.id ? { ...j, customerId: newCustomerId } : j
-                );
-
-                localStorage.setItem("jobs", JSON.stringify(updatedJobs));
-                window.location.reload();
-              }}
-            >
-              <option value="">Select a customer…</option>
-              {customers.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-
-            <button onClick={() => setShowAssignCustomer(false)}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
-
-
-      <div
-  className="job-actions"
-  style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}
->
-  <button
-    onClick={() => postJobToLedger(initialJob.id)}
-    className="ledger-button"
-  >
-    Post to Ledger
-  </button>
-
-  <Link
-   to={`/accounting/sales-invoice/new/${initialJob.id}`}
-    className="ledger-button"
-  >
-    Create Sales Invoice
-  </Link>
-</div>
-
-      <div style={{ marginTop: "0.5rem" }}>
-        <button
-          onClick={addPart}
-          className="no-print"
-          style={{
-            marginRight: "0.5rem",
-            padding: "0.4rem 0.8rem",
-            borderRadius: "6px",
-            border: "none",
-            background: "#4a6fa5",
-            color: "white",
-            cursor: "pointer",
-          }}
-        >
-          + Add Part
-        </button>
-        <button
-          onClick={() => setShowStockPicker(true)}
-          className="no-print"
-          style={{
-            padding: "0.4rem 0.8rem",
-            borderRadius: "6px",
-            border: "none",
-            background: "#4a6fa5",
-            color: "white",
-            cursor: "pointer",
-          }}
-        >
-          + Add From Stock
-        </button>
-      </div>
-
-      <div style={{ marginTop: "1rem", fontWeight: "bold" }}>
-        Total Parts Cost: �{totalPartsCost.toFixed(2)}
-      </div>
-
-      <h2 style={{ marginTop: "2rem" }}>Time Spent</h2>
-      {(timeSpent || []).map((t, i) => (
-        <div
-          key={i}
-          style={{
-            display: "flex",
-            gap: "0.5rem",
-            alignItems: "center",
-            marginBottom: "0.3rem",
-          }}
-        >
-          <input
-            type="number"
-            value={t.minutes}
-            onChange={(e) => updateTimeEntry(i, "minutes", Number(e.target.value))}
-            style={{
-              width: "80px",
-              padding: "0.3rem",
-              borderRadius: "4px",
-              border: "1px solid #ccc",
-            }}
-          />
-          <input
-            type="text"
-            value={t.note}
-            onChange={(e) => updateTimeEntry(i, "note", e.target.value)}
-            placeholder="Note"
-            style={{
-              flex: 2,
-              padding: "0.3rem",
-              borderRadius: "4px",
-              border: "1px solid #ccc",
-            }}
-          />
-          <button
-            onClick={() => removeTimeEntry(i)}
-            style={{
-              padding: "0.3rem 0.6rem",
-              borderRadius: "4px",
-              border: "none",
-              background: "#e74c3c",
-              color: "white",
-              cursor: "pointer",
-            }}
-          >
-            X
-          </button>
-        </div>
-      ))}
-
-      <button
-        onClick={addTimeEntry}
-        className="no-print"
-        style={{
-          marginTop: "0.5rem",
-          padding: "0.4rem 0.8rem",
-          borderRadius: "6px",
-          border: "none",
-          background: "#4a6fa5",
-          color: "white",
-          cursor: "pointer",
-        }}
-      >
-        + Add Time Entry
-      </button>
-
-      <h2 style={{ marginTop: "2rem" }}>Technician Notes</h2>
-      <textarea
-        value={jobState.technicianNotes || ""}
-        onChange={(e) => updateTechnicianNotes(e.target.value)}
-        className="no-print"
-        style={{
-          width: "100%",
-          minHeight: "120px",
-          padding: "0.5rem",
-          borderRadius: "6px",
-          border: "1px solid #ccc",
-        }}
-      />
-
-      <h2 style={{ marginTop: "2rem" }}>Photos</h2>
-      <input
-        type="file"
-        multiple
-        accept="image/*"
-        onChange={handlePhotoUpload}
-        className="no-print"
-        style={{ marginBottom: "0.5rem" }}
-      />
-
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "0.5rem",
-          marginTop: "0.5rem",
-        }}
-      >
-        {photos.map((src, i) => (
-          <div key={i} style={{ position: "relative" }}>
-            <img
-              src={src}
-              alt={`Photo ${i + 1}`}
-              style={{
-                width: "120px",
-                height: "120px",
-                objectFit: "cover",
-                borderRadius: "4px",
-              }}
-            />
-            <button
-              className="no-print"
-              onClick={() => removePhoto(i)}
-              style={{
-                position: "absolute",
-                top: 2,
-                right: 2,
-                padding: "0.2rem 0.4rem",
-                borderRadius: "4px",
-                border: "none",
-                background: "#e74c3c",
-                color: "white",
-                cursor: "pointer",
-                fontSize: "0.7rem",
-              }}
-            >
-              X
-            </button>
-          </div>
-        ))}
-      </div>
-
-      <h2 style={{ marginTop: "2rem" }}>Signatures</h2>
-      <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
-        <div>
-          <h3>Drop-off Signature</h3>
-          <canvas
-            ref={dropoffCanvasRef}
-            width={300}
-            height={120}
-            style={{
-              border: "1px solid #ccc",
-              background: "#fff",
-              cursor: "crosshair",
-              borderRadius: "4px",
-            }}
-            onMouseDown={(e) => startDraw(e, "dropoff")}
-            onMouseMove={(e) => draw(e, "dropoff")}
-            onMouseUp={endDraw}
-            onMouseLeave={endDraw}
-            onTouchStart={(e) => startDraw(e, "dropoff")}
-            onTouchMove={(e) => draw(e, "dropoff")}
-            onTouchEnd={endDraw}
-          />
-          <div className="no-print" style={{ marginTop: "0.5rem" }}>
-            <button
-              onClick={() => saveSignature("dropoff")}
-              style={{
-                marginRight: "0.5rem",
-                padding: "0.3rem 0.6rem",
-                borderRadius: "4px",
-                border: "none",
-                background: "#4a6fa5",
-                color: "white",
-                cursor: "pointer",
-              }}
-            >
-              Save
-            </button>
-            <button
-              onClick={() => clearSignature("dropoff")}
-              style={{
-                padding: "0.3rem 0.6rem",
-                borderRadius: "4px",
-                border: "none",
-                background: "#e74c3c",
-                color: "white",
-                cursor: "pointer",
-              }}
-            >
-              Clear
-            </button>
-          </div>
-          {jobState.dropoffSignature && (
-            <div className="print-only" style={{ display: "none" }}>
-              <img
-                src={jobState.dropoffSignature}
-                alt="Drop-off Signature"
-                style={{ width: "300px", height: "120px" }}
-              />
+          {qrURL && (
+            <div style={{ textAlign: "center", background: "#ffffff", padding: "0.5rem", borderRadius: "6px", border: "1px solid #d2c4a8" }}>
+              <img src={qrURL} alt="Routing Code Sticker" style={{ display: "block", width: "100px", height: "100px" }} />
+              <span style={{ fontSize: "0.65rem", color: "#9b8b6f", fontWeight: "bold", letterSpacing: "0.05em" }}>SCAN BARCODE KEY</span>
             </div>
           )}
         </div>
 
-        <div>
-          <h3>Collection Signature</h3>
-          <canvas
-            ref={collectionCanvasRef}
-            width={300}
-            height={120}
-            style={{
-              border: "1px solid #ccc",
-              background: "#fff",
-              cursor: "crosshair",
-              borderRadius: "4px",
-            }}
-            onMouseDown={(e) => startDraw(e, "collection")}
-            onMouseMove={(e) => draw(e, "collection")}
-            onMouseUp={endDraw}
-            onMouseLeave={endDraw}
-            onTouchStart={(e) => startDraw(e, "collection")}
-            onTouchMove={(e) => draw(e, "collection")}
-            onTouchEnd={endDraw}
-          />
-          <div className="no-print" style={{ marginTop: "0.5rem" }}>
-            <button
-              onClick={() => saveSignature("collection")}
-              style={{
-                marginRight: "0.5rem",
-                padding: "0.3rem 0.6rem",
-                borderRadius: "4px",
-                border: "none",
-                background: "#4a6fa5",
-                color: "white",
-                cursor: "pointer",
-              }}
-            >
-              Save
-            </button>
-            <button
-              onClick={() => clearSignature("collection")}
-              style={{
-                padding: "0.3rem 0.6rem",
-                borderRadius: "4px",
-                border: "none",
-                background: "#e74c3c",
-                color: "white",
-                cursor: "pointer",
-              }}
-            >
-              Clear
-            </button>
-          </div>
-          {jobState.collectionSignature && (
-            <div className="print-only" style={{ display: "none" }}>
-              <img
-                src={jobState.collectionSignature}
-                alt="Collection Signature"
-                style={{ width: "300px", height: "120px" }}
+        <hr className="divider" />
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: "2.5rem", marginTop: "1rem" }}>
+          
+          {/* LEFT PANEL COLUMN: ACTIONS AND NOTES META */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+            
+            {/* WORKSHOP TASK PHASE TOGGLES */}
+            <div style={{ background: "#fdfbf7", padding: "1.25rem", border: "1px solid #d2c4a8", borderRadius: "6px" }}>
+              <h3 className="section-title" style={{ marginTop: 0 }}>⚙️ Workbench Phase Control</h3>
+              
+              <div className="form-row" style={{ marginTop: "0.7rem" }}>
+                <label style={{ display: "block", width: "100%" }}>Operational Workflow Status
+                  <select value={jobState.status} onChange={e => handleUpdateField({ status: e.target.value })} style={{ marginTop: "0.25rem", width: "100%" }}>
+                    <option value="In Progress">🔧 Active Repair on Bench</option>
+                    <option value="Awaiting Parts">📦 Delayed: Parts on Order</option>
+                    <option value="Quality Control">🔬 Time-Grapher QC Sync</option>
+                    <option value="Completed">Ready for Collection</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="form-row" style={{ marginTop: "0.75rem", display: "flex", gap: "1rem" }}>
+                <label style={{ flex: 1 }}>Billed Sales Price (£)
+                  <input type="number" step="0.01" value={jobState.salesPrice || ""} onChange={e => handleUpdateField({ salesPrice: e.target.value })} style={{ marginTop: "0.25rem", width: "100%" }} />
+                </label>
+                <label style={{ flex: 1 }}>Accounting Balance Status
+                  <select value={jobState.paymentStatus || "UNPAID"} onChange={e => handleUpdateField({ paymentStatus: e.target.value as any })} style={{ marginTop: "0.25rem", width: "100%" }}>
+                    <option value="UNPAID">🔴 Open Outstanding Debt</option>
+                    <option value="PAID">🟢 Account Balanced (Settled)</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            {/* ASSIGNED CLIENT LEDGER DETAILS SUMMARY */}
+            <div style={{ background: "#fdfbf7", padding: "1.25rem", border: "1px solid #d2c4a8", borderRadius: "6px" }}>
+              <h3 className="section-title" style={{ marginTop: 0 }}>👤 Consignment Owner Profile</h3>
+              {customer ? (
+                <div style={{ fontSize: "0.9rem", marginTop: "0.5rem", lineHeight: "1.4" }}>
+                  <div><strong>Full Name:</strong> {customer.name}</div>
+                  <div><strong>Phone:</strong> {jobState.customerPhone || "Linked via Profile"}</div>
+                  <div style={{ color: "#6b5c4a", fontSize: "0.8rem", marginTop: "0.25rem" }}>📍 Courier Address: {customer.address || "No address log"}</div>
+                </div>
+              ) : (
+                <p style={{ color: "#9b8b6f", fontStyle: "italic", fontSize: "0.85rem", margin: 0 }}>
+                  No customer bound. Map owner inside administrator portal settings.
+                </p>
+              )}
+            </div>
+
+            {/* HOROLOGIST LOG DIARY FIELD */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+              <label className="notes-label" style={{ fontWeight: "bold", fontSize: "0.9rem" }}>
+                🔬 Bench Horologist Service Diary Memo
+              </label>
+              <textarea
+                rows={5}
+                style={{ background: "#fdfbf7", padding: "0.5rem", border: "1px solid #d2c4a8", borderRadius: "6px" }}
+                value={jobState.technicianNotes || ""}
+                onChange={e => handleUpdateField({ technicianNotes: e.target.value })}
+                placeholder="Log granular service records: e.g., Replaced mainspring barrel, adjusted pallet fork engagement, loaded Moebius 9010 on balance pivots..."
               />
             </div>
-          )}
-        </div>
-      </div>
+          </div>
 
-      {showStockPicker && (
-        <div
-          className="no-print"
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 9999,
-          }}
-        >
-          <div
-            style={{
-              background: "white",
-              padding: "1rem",
-              borderRadius: "8px",
-              width: "500px",
-              maxHeight: "80vh",
-              overflowY: "auto",
-            }}
-          >
-            <h3>Select Stock Item</h3>
-            {stockItems.map((s) => (
-              <div
-                key={s.id}
-                style={{
-                  padding: "0.5rem",
-                  borderBottom: "1px solid #eee",
-                  cursor: "pointer",
-                }}
-                onClick={() => handleSelectStockItem(s)}
-              >
-                <strong>{s.name}</strong> � Qty: {s.quantity}
-                <br />
-                <span style={{ fontSize: "0.9rem", color: "#555" }}>
-                  SKU: {s.sku}
+          {/* RIGHT PANEL COLUMN: REPLACEMENT INVENTORY MATRIX & SIGNATURE DRAW PANELS */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            
+            {/* MATERIAL PIECES TABLE INDEX */}
+            <div style={{ background: "#fdfbf7", padding: "1.25rem", border: "1px solid #d2c4a8", borderRadius: "6px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h3 className="section-title" style={{ margin: 0 }}>📦 Pre-Allocated Movement Parts</h3>
+                <span style={{ fontSize: "0.85rem", fontWeight: "bold", color: "#6b5c4a" }}>
+                  Materials Valuation: £{totalPartsCost.toFixed(2)}
                 </span>
               </div>
-            ))}
-            <button
-              onClick={() => setShowStockPicker(false)}
-              style={{
-                marginTop: "1rem",
-                padding: "0.5rem 1rem",
-                borderRadius: "6px",
-                border: "none",
-                background: "#ccc",
-                cursor: "pointer",
-              }}
-            >
-              Close
-            </button>
+
+              <table className="ledger-table" style={{ marginTop: "0.75rem", background: "#ffffff", width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ background: "#f5f2eb" }}>
+                    <th style={{ textAlign: "left", padding: "0.4rem" }}>Component Part Name</th>
+                    <th style={{ width: "15%", textAlign: "center", padding: "0.4rem" }}>Qty</th>
+                    <th style={{ width: "20%", textAlign: "right", padding: "0.4rem" }}>Cost</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {!jobState.partsUsed || jobState.partsUsed.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} style={{ fontStyle: "italic", color: "#9b8b6f", fontSize: "0.8rem", padding: "0.5rem", textAlign: "center" }}>
+                        No inventory parts linked to this ticket sequence.
+                      </td>
+                    </tr>
+                  ) : (
+                    jobState.partsUsed.map((p, idx) => (
+                      <tr key={idx} style={{ borderBottom: "1px solid #eee" }}>
+                        <td style={{ padding: "0.4rem" }}>{p.name || "Custom Materials Allocation"}</td>
+                        <td style={{ textAlign: "center", padding: "0.4rem" }}>{p.qty}</td>
+                        <td style={{ textAlign: "right", padding: "0.4rem" }}>£{((p.costPrice || 0) * (p.qty || 0)).toFixed(2)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* DUAL WORKSHOP CAPTURE SIGNATURE REGION */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
+              
+              {/* INTERFACE PANEL A: INTAKE EXECUTION */}
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <span style={{ fontSize: "0.8rem", color: "#6b5c4a", fontWeight: "bold" }}>A. Customer Intake Consent</span>
+                {jobState.dropoffSignature ? (
+                  <div style={{ background: "#fdfbf7", border: "1px dashed #c8b79a", padding: "0.25rem", borderRadius: "4px", marginTop: "0.3rem" }}>
+                    <img src={jobState.dropoffSignature} alt="Intake verified" style={{ width: "100%", height: "95px", objectFit: "contain" }} />
+                  </div>
+                ) : (
+                  <div style={{ marginTop: "0.3rem" }}>
+                    <canvas
+                      ref={dropoffCanvasRef}
+                      width={220}
+                      height={95}
+                      style={{ background: "#ffffff", border: "1px solid #c8b79a", borderRadius: "4px", touchAction: "none", width: "100%" }}
+                      onMouseDown={e => startDrawing(e, dropoffCanvasRef)}
+                      onMouseMove={e => drawMovementLine(e, dropoffCanvasRef)}
+                      onMouseUp={() => setIsDrawing(false)}
+                      onTouchStart={e => startDrawing(e, dropoffCanvasRef)}
+                      onTouchMove={e => drawMovementLine(e, dropoffCanvasRef)}
+                      onTouchEnd={() => setIsDrawing(false)}
+                    />
+                    <button type="button" className="small-button" style={{ width: "100%", marginTop: "0.25rem", fontSize: "0.75rem" }} onClick={() => saveSignatureCanvas("dropoff", dropoffCanvasRef)}>
+                      🔒 Lock Intake Line
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* INTERFACE PANEL B: HANDOVER COMPLETION */}
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <span style={{ fontSize: "0.8rem", color: "#6b5c4a", fontWeight: "bold" }}>B. Handover Release Signature</span>
+                {jobState.collectionSignature ? (
+                  <div style={{ background: "#fdfbf7", border: "1px dashed #c8b79a", padding: "0.25rem", borderRadius: "4px", marginTop: "0.3rem" }}>
+                    <img src={jobState.collectionSignature} alt="Release verified" style={{ width: "100%", height: "95px", objectFit: "contain" }} />
+                  </div>
+                ) : (
+                  <div style={{ marginTop: "0.3rem" }}>
+                    <canvas
+                      ref={collectionCanvasRef}
+                      width={220}
+                      height={95}
+                      style={{ background: "#ffffff", border: "1px solid #c8b79a", borderRadius: "4px", touchAction: "none", width: "100%" }}
+                      onMouseDown={e => startDrawing(e, collectionCanvasRef)}
+                      onMouseMove={e => drawMovementLine(e, collectionCanvasRef)}
+                      onMouseUp={() => setIsDrawing(false)}
+                      onTouchStart={e => startDrawing(e, collectionCanvasRef)}
+                      onTouchMove={e => drawMovementLine(e, collectionCanvasRef)}
+                      onTouchEnd={() => setIsDrawing(false)}
+                    />
+                    <button type="button" className="small-button" style={{ width: "100%", marginTop: "0.25rem", fontSize: "0.75rem" }} onClick={() => saveSignatureCanvas("collection", collectionCanvasRef)}>
+                      🔒 Lock Handover Line
+                    </button>
+                  </div>
+                )}
+              </div>
+
+            </div>
           </div>
+
         </div>
-      )}
-      
+
+      </div>
     </div>
   );
 }

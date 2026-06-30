@@ -1,0 +1,42 @@
+/* src/pages/Accounting/AccountingMenu.css */
+
+/* The Menu Container */
+.accounting-menu {
+  display: flex;
+  flex-wrap: nowrap;     /* Keeps links on one single line */
+  overflow-x: auto;      /* Enables horizontal scroll if items exceed width */
+  gap: 12px;
+  padding: 10px 0;
+  margin-bottom: 2rem;
+  width: 100%;           /* Spans full width of parent */
+  scrollbar-width: none; /* Hides Firefox scrollbar */
+}
+
+/* Hides scrollbar for Chrome/Safari/Edge */
+.accounting-menu::-webkit-scrollbar {
+  display: none;
+}
+
+/* Individual Ledger Buttons */
+.ledger-button {
+  padding: 8px 16px;
+  text-decoration: none;
+  color: #1e293b;
+  font-weight: 500;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  white-space: nowrap;   /* Prevents button text from wrapping */
+  flex-shrink: 0;        /* Prevents buttons from getting squished */
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.ledger-button:hover {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.ledger-button.active {
+  background: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-weight: 700;
+}

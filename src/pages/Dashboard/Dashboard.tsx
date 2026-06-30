@@ -1,81 +1,70 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Link } from "react-router-dom";
-import "./Dashboard.css";
+import { useAccounting } from "../Accounting/AccountingContext";
+import { useJobs } from "../../hooks/useJobs";
+import "../Dashboard/Dashboard.css"; 
+
+interface StockItem { id: string; stock_level: number; alert_threshold?: number; }
 
 export default function Dashboard() {
-  // Read stored data safely
-  const jobs = JSON.parse(localStorage.getItem("jobs") || "[]");
-  const ledger = JSON.parse(localStorage.getItem("ledger") || "[]");
-  const stock = JSON.parse(localStorage.getItem("stock") || "[]");
-  const technicianTasks = JSON.parse(localStorage.getItem("technicianTasks") || "[]");
+  const { jobs } = useJobs();
+  const { salesInvoices, salesReceipts, loading: accountingLoading } = useAccounting();
+  
+  const stockItems: StockItem[] = []; 
+  const technicianTasks: any[] = [];
 
-  // Calculate metrics dynamically
-  const openJobs = jobs.length;
-  const outstandingInvoices = ledger.reduce(
-    (sum: number, item: any) => sum + (item.amount || 0),
-    0
-  );
-  const stockAlerts = stock.filter((item: any) => item.alert).length;
-  const technicianCount = technicianTasks.length;
+  const receiptTotalsMap = useMemo(() => {
+    const sums: Record<number, number> = {};
+    if (!salesReceipts) return sums;
+    salesReceipts.forEach(r => { sums[r.invoiceId] = (sums[r.invoiceId] || 0) + r.amount; });
+    return sums;
+  }, [salesReceipts]);
+
+  const outstandingReceivablesValue = useMemo(() => {
+    if (!salesInvoices) return 0;
+    return salesInvoices.reduce((sum, inv) => {
+      const settledAmount = receiptTotalsMap[inv.id] || 0;
+      const balanceDue = inv.amount - settledAmount;
+      return sum + (balanceDue > 0 ? balanceDue : 0);
+    }, 0);
+  }, [salesInvoices, receiptTotalsMap]);
 
   return (
-    <div className="dashboard">
-      {/* HERO BANNER */}
-      <div className="dashboard-hero">
+    <div className="dashboard-container">
+      {/* Header section (no longer holds the background image) */}
+      <header className="dashboard-hero">
         <div className="hero-overlay">
           <h1 className="hero-title">Welcome to the Workshop</h1>
-          <p className="hero-subtitle">
-            Your horological workspace — jobs, customers, accounting and tools all in one place.
-          </p>
+          <p className="hero-subtitle">Horological precision, synchronized.</p>
         </div>
-      </div>
+      </header>
 
-      {/* QUICK ACTIONS */}
-      <div className="panel">
-        <h2>Quick Actions</h2>
-        <div className="quick-actions">
-          <Link className="btn" to="/jobs/new">New Job</Link>
-          <Link className="btn" to="/accounting/sales-invoice/new">New Invoice</Link>
-          <Link className="btn" to="/accounting/sales-receipts/new">Record Payment</Link>
-          <Link className="btn" to="/stock/adjust">Adjust Stock</Link>
+      <section className="card">
+        <h2 className="section-title">Quick Actions</h2>
+        <div className="quick-actions-row">
+          <Link className="action-button" to="/jobs/new">🔧 New Job Ticket</Link>
+          <Link className="action-button" to="/accounting/sales-invoice/new">📄 New Sales Invoice</Link>
+          <Link className="action-button" to="/accounting/sales-receipts/new">💰 Record Payment</Link>
+          <Link className="action-button" to="/stock/adjust">⚡ Adjust Stock</Link>
         </div>
-      </div>
+      </section>
 
-      {/* METRICS */}
       <div className="metrics-grid">
-        <div className="panel metric-card">
-          <h3>Open Jobs</h3>
-          <p className="metric-number">{openJobs}</p>
-          <Link to="/jobs" className="metric-link">View Jobs</Link>
+        <div className="card metric-card">
+          <h3>Open Tickets</h3>
+          <p className="metric-value">{jobs?.length || 0}</p>
+          <Link to="/jobs">View Queue →</Link>
         </div>
-
-        <div className="panel metric-card">
-          <h3>Outstanding Invoices</h3>
-          <p className="metric-number">£{outstandingInvoices.toLocaleString()}</p>
-          <Link to="/accounting/sales-ledger" className="metric-link">View Ledger</Link>
+        <div className="card metric-card">
+          <h3>Receivables</h3>
+          <p className="metric-value">£{accountingLoading ? "..." : outstandingReceivablesValue.toFixed(2)}</p>
+          <Link to="/accounting/sales-ledger">View Ledger →</Link>
         </div>
-
-        <div className="panel metric-card">
+        <div className="card metric-card">
           <h3>Stock Alerts</h3>
-          <p className="metric-number">{stockAlerts}</p>
-          <Link to="/stock" className="metric-link">View Stock</Link>
+          <p className="metric-value">0</p>
+          <Link to="/stock">View Inventory →</Link>
         </div>
-
-        <div className="panel metric-card">
-          <h3>Technician Tasks</h3>
-          <p className="metric-number">{technicianCount}</p>
-          <Link to="/technician/my-jobs" className="metric-link">View Tasks</Link>
-        </div>
-      </div>
-
-      {/* RECENT ACTIVITY */}
-      <div className="panel">
-        <h2>Recent Activity</h2>
-        <ul className="activity-list">
-          {jobs.length === 0 && ledger.length === 0 && stock.length === 0 ? (
-            <li>No recent activity — start by creating a new job or invoice.</li>
-          ) : null}
-        </ul>
       </div>
     </div>
   );

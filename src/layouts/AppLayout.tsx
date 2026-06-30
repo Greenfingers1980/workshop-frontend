@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React from "react";
 import { Outlet } from "react-router-dom";
-import "./AppLayout.css";
+
 
 const AppLayout: React.FC = () => {
   return (
